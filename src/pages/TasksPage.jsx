@@ -4,8 +4,10 @@ import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
 import { useTasks } from '../hooks/useTasks';
 import { useStats } from '../hooks/useStats';
-import { getGnomeState } from '../lib/gnome';
+import { getCharacter, getCharacterState, DEFAULT_CHARACTER_ID } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
+
+const character = getCharacter(DEFAULT_CHARACTER_ID);
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -70,7 +72,7 @@ export default function TasksPage() {
     return snoozed.sort((a, b) => b.snooze_count - a.snooze_count)[0] ?? null;
   }, [displayTasks]);
 
-  const { stage, lines } = getGnomeState(focusTask);
+  const { stage, lines } = getCharacterState(character, focusTask);
   const snoozeEcho = focusTask?.snooze_count
     ? `Отложено ${focusTask.snooze_count} ${pluralRu(focusTask.snooze_count, 'раз', 'раза', 'раз')}`
     : null;
@@ -137,6 +139,7 @@ export default function TasksPage() {
       </div>
 
       <GnomePanel
+        character={character}
         stage={stage}
         lines={lines}
         snoozeEcho={snoozeEcho}

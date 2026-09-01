@@ -1,10 +1,15 @@
-export default function GnomePanel({ stage, lines, snoozeEcho, hourBuckets, caption }) {
+import { Link } from 'react-router-dom';
+
+export default function GnomePanel({ character, stage, lines, snoozeEcho, hourBuckets, caption }) {
   const maxVal = Math.max(1, ...(hourBuckets ?? []));
 
   return (
     <aside className="gnome-panel">
       <div className="gnome-panel-header">
-        <div className="gnome-panel-title">Диалог с гномом</div>
+        <div className="gnome-panel-title-row">
+          <img className="gnome-panel-avatar" src={character.avatar} alt={character.name} />
+          <div className="gnome-panel-title">Диалог с гномом</div>
+        </div>
         <div className="gnome-stage-badge">{stage ? `СТУПЕНЬ ${stage}` : 'ВСЁ ЧИСТО'}</div>
       </div>
 
@@ -35,7 +40,7 @@ export default function GnomePanel({ stage, lines, snoozeEcho, hourBuckets, capt
         </>
       )}
 
-      <button className="gnome-switch-btn">Сменить персонажа</button>
+      <Link to="/characters" className="gnome-switch-btn">Сменить персонажа</Link>
       <div className="gnome-panel-footnote">Брифинг приходит в 8:00 в приложение и на почту</div>
     </aside>
   );

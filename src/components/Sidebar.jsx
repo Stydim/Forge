@@ -1,4 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
+import { getCharacter, DEFAULT_CHARACTER_ID } from '../lib/characters';
+
+const character = getCharacter(DEFAULT_CHARACTER_ID);
 
 const navItems = [
   { to: '/tasks', label: 'Задачи', count: 3 },
@@ -33,13 +36,13 @@ export default function Sidebar() {
 
       <div className="sidebar-spacer" />
 
-      <div className="sidebar-companion">
-        <div className="sidebar-companion-avatar">🧙</div>
+      <Link to="/characters" className="sidebar-companion">
+        <img className="sidebar-companion-avatar" src={character.avatar} alt={character.name} />
         <div>
-          <div className="sidebar-companion-name">Ворчливый гном</div>
-          <div className="sidebar-companion-desc">Ступень 5 из 7. Дальше только тише.</div>
+          <div className="sidebar-companion-name">{character.name}</div>
+          <div className="sidebar-companion-desc">{character.tagline}</div>
         </div>
-      </div>
+      </Link>
 
       <div className="sidebar-plan">
         <div className="sidebar-plan-label">БЕСПЛАТНО · 3 ИЗ 5</div>
