@@ -201,8 +201,8 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 }
 
 .sidebar-companion-avatar {
-  width: 44px;
-  height: 44px;
+  width: 88px;
+  height: 88px;
   border-radius: var(--radius-full);
   background: var(--accent-teal-bg);
   object-fit: cover;
@@ -703,8 +703,8 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 }
 
 .character-avatar {
-  width: 168px;
-  height: 168px;
+  width: 252px;
+  height: 252px;
   border-radius: var(--radius-full);
   object-fit: cover;
   overflow: hidden;
