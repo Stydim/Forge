@@ -447,6 +447,13 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   text-decoration: none;
 }
 
+.task-subtask-chip.pending {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
 /* Add task input */
 .task-add-row {
   display: flex;
@@ -463,10 +470,26 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   text-align: left;
 }
 
-.task-add-row:hover {
+.task-add-row:hover,
+.task-add-row:focus-within {
   border-color: var(--accent-teal);
   color: var(--accent-teal-dark);
   background: var(--accent-teal-bg);
+}
+
+.task-add-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 600;
+}
+
+.task-add-input::placeholder {
+  color: var(--text-tertiary);
+  font-weight: 600;
 }
 
 /* ---------- Stats row ---------- */

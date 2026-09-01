@@ -54,11 +54,11 @@ export function ProgressTaskCard({ task, onSubtaskClick }) {
         <div className="task-progress-bar-fill" style={{ width: `${task.progress}%` }} />
       </div>
       <div className="task-subtasks">
-        {task.subtasks.map((s, i) => (
+        {task.subtasks.map((s) => (
           <button
-            key={i}
-            className={`task-subtask-chip${s.active ? ' active' : ''}`}
-            onClick={() => onSubtaskClick?.(task.id, i)}
+            key={s.id}
+            className={`task-subtask-chip${s.active ? ' active' : s.done ? '' : ' pending'}`}
+            onClick={() => onSubtaskClick?.(s.id, !s.done)}
           >
             {s.label}
           </button>
