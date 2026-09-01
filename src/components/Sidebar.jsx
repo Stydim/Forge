@@ -13,9 +13,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon" />
-        <span className="sidebar-logo-text">
-          Nudge<span className="brand-light">Me</span>
-        </span>
+        <span className="sidebar-logo-text">Forge</span>
       </div>
 
       <button className="sidebar-new-task">+ Новая задача</button>
