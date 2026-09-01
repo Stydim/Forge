@@ -600,7 +600,7 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .snooze-chart {
   display: flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 2px;
   height: 64px;
   margin-bottom: 10px;
 }
@@ -608,8 +608,8 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .snooze-bar {
   flex: 1;
   background: var(--accent-amber-bg);
-  border-radius: 4px 4px 2px 2px;
-  min-height: 6px;
+  border-radius: 2px 2px 1px 1px;
+  min-height: 3px;
 }
 
 .snooze-bar.high { background: var(--accent-red); }

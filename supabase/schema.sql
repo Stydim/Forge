@@ -22,13 +22,23 @@ create table subtasks (
   position integer not null default 0
 );
 
+-- One row per snooze action, so the "откладывания по часам" chart
+-- and future stats can be computed from real history.
+create table snooze_events (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid not null references tasks(id) on delete cascade,
+  occurred_at timestamptz not null default now()
+);
+
 alter table tasks enable row level security;
 alter table subtasks enable row level security;
+alter table snooze_events enable row level security;
 
 -- No auth yet: allow the anon (publishable) key full access.
 -- Tighten this once per-user auth is added.
 create policy "anon full access" on tasks for all using (true) with check (true);
 create policy "anon full access" on subtasks for all using (true) with check (true);
+create policy "anon full access" on snooze_events for all using (true) with check (true);
 
 -- Seed with the same three example tasks currently shown as mock data.
 insert into tasks (kind, title, due_at, recurrence_note, reminder_count, snooze_count)

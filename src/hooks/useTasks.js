@@ -43,11 +43,16 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (
       t.id === id ? { ...t, due_at: newDueAt, snooze_count: t.snooze_count + 1 } : t
     )));
-    const { error: err } = await supabase
+    const updateRes = await supabase
       .from('tasks')
       .update({ due_at: newDueAt, snooze_count: task.snooze_count + 1 })
       .eq('id', id);
-    if (err) { setError(err.message); load(); }
+    if (updateRes.error) { setError(updateRes.error.message); load(); return; }
+
+    // Best-effort: powers the "по часам" chart, but shouldn't block the snooze itself.
+    supabase.from('snooze_events').insert({ task_id: id }).then(({ error: err }) => {
+      if (err) console.warn('snooze_events insert failed:', err.message);
+    });
   }, [tasks, load]);
 
   const toggleSubtask = useCallback(async (subtaskId, done) => {

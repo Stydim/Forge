@@ -3,13 +3,9 @@ import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
 import { useTasks } from '../hooks/useTasks';
-import { formatOverdue, formatUpcoming, formatDaysLeft, pluralRu } from '../lib/format';
-
-const gnomeMessages = [
-  { from: 'gnome', text: 'Витамины ждут с девяти. Это твой список, не мой.' },
-  { from: 'gnome', text: 'Ладно, молчу. Тебе виднее, я всего лишь гном.' },
-  { from: 'user', text: 'Отложено на 1 час' },
-];
+import { useStats } from '../hooks/useStats';
+import { getGnomeState } from '../lib/gnome';
+import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -50,6 +46,7 @@ function deriveDisplay(task) {
 
 export default function TasksPage() {
   const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = useTasks();
+  const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const [lang, setLang] = useState('ru');
   const [draft, setDraft] = useState('');
 
@@ -65,6 +62,22 @@ export default function TasksPage() {
             ? 'Одно уже просит внимания.'
             : `${overdueCount} уже просят внимания.`
       }`;
+
+  const focusTask = useMemo(() => {
+    const urgent = displayTasks.filter((t) => t.display === 'urgent');
+    if (urgent.length) return urgent.sort((a, b) => b.snooze_count - a.snooze_count)[0];
+    const snoozed = displayTasks.filter((t) => t.kind === 'task' && t.snooze_count > 0);
+    return snoozed.sort((a, b) => b.snooze_count - a.snooze_count)[0] ?? null;
+  }, [displayTasks]);
+
+  const { stage, lines } = getGnomeState(focusTask);
+  const snoozeEcho = focusTask?.snooze_count
+    ? `Отложено ${focusTask.snooze_count} ${pluralRu(focusTask.snooze_count, 'раз', 'раза', 'раз')}`
+    : null;
+  const caption = stats ? describeSnoozePattern(stats.hourBuckets) : null;
+
+  const handleDone = (id) => { completeTask(id); reloadStats(); };
+  const handleSnooze = (id) => { snoozeTask(id); reloadStats(); };
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
@@ -99,12 +112,12 @@ export default function TasksPage() {
         <div className="task-list">
           {displayTasks.map((task) => {
             if (task.display === 'urgent') {
-              return <UrgentTaskCard key={task.id} task={task} onDone={completeTask} onSnooze={snoozeTask} />;
+              return <UrgentTaskCard key={task.id} task={task} onDone={handleDone} onSnooze={handleSnooze} />;
             }
             if (task.display === 'progress') {
               return <ProgressTaskCard key={task.id} task={task} onSubtaskClick={toggleSubtask} />;
             }
-            return <NormalTaskCard key={task.id} task={task} onDone={completeTask} onSnooze={snoozeTask} />;
+            return <NormalTaskCard key={task.id} task={task} onDone={handleDone} onSnooze={handleSnooze} />;
           })}
         </div>
 
@@ -120,10 +133,16 @@ export default function TasksPage() {
 
         <div style={{ height: 24 }} />
 
-        <StatsRow streak={12} streakRecord={24} onTimeRate={86} avgSnoozes="2,4" />
+        <StatsRow stats={stats} loading={statsLoading} />
       </div>
 
-      <GnomePanel stage={5} messages={gnomeMessages} />
+      <GnomePanel
+        stage={stage}
+        lines={lines}
+        snoozeEcho={snoozeEcho}
+        hourBuckets={stats?.hourBuckets}
+        caption={caption}
+      />
     </div>
   );
 }

@@ -29,3 +29,32 @@ export function formatDaysLeft(dueAt) {
   const days = Math.max(0, Math.ceil((new Date(dueAt).getTime() - Date.now()) / 86400000));
   return `${days} ${pluralRu(days, 'день', 'дня', 'дней')} до срока`;
 }
+
+export function formatDecimalRu(n) {
+  return n.toFixed(1).replace('.', ',');
+}
+
+const DAY_PERIODS = [
+  { name: 'Ночь', start: 0, end: 6 },
+  { name: 'Утро', start: 6, end: 12 },
+  { name: 'День', start: 12, end: 18 },
+  { name: 'Вечер', start: 18, end: 24 },
+];
+
+export function describeSnoozePattern(hourBuckets) {
+  const total = hourBuckets.reduce((a, b) => a + b, 0);
+  if (!total) return null;
+
+  let best = DAY_PERIODS[0];
+  let bestCount = -1;
+  for (const period of DAY_PERIODS) {
+    const count = hourBuckets.slice(period.start, period.end).reduce((a, b) => a + b, 0);
+    if (count > bestCount) {
+      bestCount = count;
+      best = period;
+    }
+  }
+  if (bestCount === 0) return null;
+
+  return `${best.name} — слабое место: ${bestCount} из ${total} ${pluralRu(total, 'откладывание', 'откладывания', 'откладываний')} до ${best.end}:00.`;
+}
