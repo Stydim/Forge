@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { pluralRu } from '../lib/format';
 
 const REPEAT_OPTIONS = [
   { value: 'none', label: 'Без повтора' },
@@ -8,6 +9,7 @@ const REPEAT_OPTIONS = [
   { value: 'weekends', label: 'По выходным' },
   { value: 'monthly', label: 'Каждый месяц' },
   { value: 'yearly', label: 'Ежегодно' },
+  { value: 'custom_days', label: 'По дням недели' },
 ];
 
 const REPEAT_NOTES = {
@@ -20,10 +22,40 @@ const REPEAT_NOTES = {
   yearly: 'ежегодно',
 };
 
+const DAYS_OF_WEEK = [
+  { value: 'mon', label: 'Пн' },
+  { value: 'tue', label: 'Вт' },
+  { value: 'wed', label: 'Ср' },
+  { value: 'thu', label: 'Чт' },
+  { value: 'fri', label: 'Пт' },
+  { value: 'sat', label: 'Сб' },
+  { value: 'sun', label: 'Вс' },
+];
+
+function buildRecurrenceNote(repeat, selectedDays, timesPerDay) {
+  if (repeat === 'none') return null;
+
+  let base;
+  if (repeat === 'custom_days') {
+    if (selectedDays.length === 0) return null;
+    const labels = DAYS_OF_WEEK.filter((d) => selectedDays.includes(d.value)).map((d) => d.label);
+    base = `по ${labels.join(', ')}`;
+  } else {
+    base = REPEAT_NOTES[repeat];
+  }
+
+  if (timesPerDay > 1) {
+    base += ` · ${timesPerDay} ${pluralRu(timesPerDay, 'раз', 'раза', 'раз')} в день`;
+  }
+  return base;
+}
+
 export default function TaskFormModal({ open, onClose, onSubmit }) {
   const [title, setTitle] = useState('');
   const [due, setDue] = useState('');
   const [repeat, setRepeat] = useState('none');
+  const [selectedDays, setSelectedDays] = useState([]);
+  const [timesPerDay, setTimesPerDay] = useState(1);
 
   if (!open) return null;
 
@@ -31,11 +63,19 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
     setTitle('');
     setDue('');
     setRepeat('none');
+    setSelectedDays([]);
+    setTimesPerDay(1);
   };
 
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  const toggleDay = (value) => {
+    setSelectedDays((prev) => (
+      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value]
+    ));
   };
 
   const handleSubmit = (e) => {
@@ -44,7 +84,7 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
     onSubmit({
       title: title.trim(),
       due_at: due ? new Date(due).toISOString() : null,
-      recurrence_note: REPEAT_NOTES[repeat],
+      recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay),
     });
     reset();
     onClose();
@@ -92,6 +132,47 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
               </button>
             ))}
           </div>
+
+          {repeat === 'custom_days' && (
+            <>
+              <div className="task-modal-label">По каким дням</div>
+              <div className="task-modal-days-row">
+                {DAYS_OF_WEEK.map((day) => (
+                  <button
+                    type="button"
+                    key={day.value}
+                    className={`task-modal-day-btn${selectedDays.includes(day.value) ? ' active' : ''}`}
+                    onClick={() => toggleDay(day.value)}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {repeat !== 'none' && (
+            <>
+              <div className="task-modal-label">Количество повторов в день</div>
+              <div className="task-modal-counter">
+                <button
+                  type="button"
+                  className="task-modal-counter-btn"
+                  onClick={() => setTimesPerDay((n) => Math.max(1, n - 1))}
+                >
+                  −
+                </button>
+                <span className="task-modal-counter-value">{timesPerDay}</span>
+                <button
+                  type="button"
+                  className="task-modal-counter-btn"
+                  onClick={() => setTimesPerDay((n) => Math.min(10, n + 1))}
+                >
+                  +
+                </button>
+              </div>
+            </>
+          )}
 
           <div className="task-modal-actions">
             <button type="button" className="task-modal-btn cancel" onClick={handleClose}>Отмена</button>

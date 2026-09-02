@@ -902,6 +902,67 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   font-weight: 800;
 }
 
+.task-modal-days-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.task-modal-day-btn {
+  flex: 1;
+  padding: 12px 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.task-modal-day-btn:hover {
+  border-color: var(--accent-teal);
+}
+
+.task-modal-day-btn.active {
+  background: var(--accent-teal);
+  border-color: var(--accent-teal);
+  color: var(--text-inverse);
+}
+
+.task-modal-counter {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.task-modal-counter-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.task-modal-counter-btn:hover {
+  border-color: var(--accent-teal);
+}
+
+.task-modal-counter-value {
+  min-width: 24px;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
 .task-modal-actions {
   display: flex;
   gap: 12px;
