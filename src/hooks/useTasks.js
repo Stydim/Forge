@@ -64,12 +64,12 @@ export function useTasks() {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  const addTask = useCallback(async (title) => {
+  const addTask = useCallback(async ({ title, due_at = null, recurrence_note = null }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
     const { data, error: err } = await supabase
       .from('tasks')
-      .insert({ kind: 'task', title: trimmed })
+      .insert({ kind: 'task', title: trimmed, due_at, recurrence_note })
       .select('*, subtasks(*)')
       .single();
     if (err) { setError(err.message); return; }

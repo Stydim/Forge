@@ -11,7 +11,7 @@ const navItems = [
   { to: '/settings', label: 'Настройки' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNewTask }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -19,7 +19,7 @@ export default function Sidebar() {
         <span className="sidebar-logo-text">Forge</span>
       </div>
 
-      <button className="sidebar-new-task">+ Новая задача</button>
+      <button className="sidebar-new-task" onClick={onNewTask}>+ Новая задача</button>
 
       <nav className="sidebar-nav">
         {navItems.map((item) => (

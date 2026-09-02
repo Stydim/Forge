@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/TaskCard';
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
-import { useTasks } from '../hooks/useTasks';
 import { useStats } from '../hooks/useStats';
 import { getCharacter, getCharacterState, DEFAULT_CHARACTER_ID } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
@@ -46,8 +45,8 @@ function deriveDisplay(task) {
   };
 }
 
-export default function TasksPage() {
-  const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = useTasks();
+export default function TasksPage({ tasks: tasksState }) {
+  const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const [lang, setLang] = useState('ru');
   const [draft, setDraft] = useState('');
@@ -83,7 +82,7 @@ export default function TasksPage() {
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
-    addTask(draft);
+    addTask({ title: draft });
     setDraft('');
   };
 
