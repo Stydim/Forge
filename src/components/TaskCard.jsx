@@ -1,4 +1,21 @@
-export function UrgentTaskCard({ task, onDone, onSnooze }) {
+function SubtaskChips({ subtasks, onSubtaskClick }) {
+  if (!subtasks || subtasks.length === 0) return null;
+  return (
+    <div className="task-subtasks">
+      {subtasks.map((s) => (
+        <button
+          key={s.id}
+          className={`task-subtask-chip${s.active ? ' active' : s.done ? '' : ' pending'}`}
+          onClick={() => onSubtaskClick?.(s.id, !s.done)}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
   return (
     <div className="task-card urgent">
       <div className="task-card-row">
@@ -15,11 +32,12 @@ export function UrgentTaskCard({ task, onDone, onSnooze }) {
           </button>
         </div>
       </div>
+      <SubtaskChips subtasks={task.subtasks} onSubtaskClick={onSubtaskClick} />
     </div>
   );
 }
 
-export function NormalTaskCard({ task, onDone, onSnooze }) {
+export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
   return (
     <div className="task-card">
       <div className="task-card-row">
@@ -36,6 +54,7 @@ export function NormalTaskCard({ task, onDone, onSnooze }) {
           </button>
         </div>
       </div>
+      <SubtaskChips subtasks={task.subtasks} onSubtaskClick={onSubtaskClick} />
     </div>
   );
 }
@@ -53,17 +72,7 @@ export function ProgressTaskCard({ task, onSubtaskClick }) {
       <div className="task-progress-bar">
         <div className="task-progress-bar-fill" style={{ width: `${task.progress}%` }} />
       </div>
-      <div className="task-subtasks">
-        {task.subtasks.map((s) => (
-          <button
-            key={s.id}
-            className={`task-subtask-chip${s.active ? ' active' : s.done ? '' : ' pending'}`}
-            onClick={() => onSubtaskClick?.(s.id, !s.done)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <SubtaskChips subtasks={task.subtasks} onSubtaskClick={onSubtaskClick} />
     </div>
   );
 }

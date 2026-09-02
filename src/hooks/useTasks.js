@@ -64,7 +64,7 @@ export function useTasks() {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  const addTask = useCallback(async ({ title, due_at = null, recurrence_note = null }) => {
+  const addTask = useCallback(async ({ title, due_at = null, recurrence_note = null, timesPerDay = 1 }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
     const { data, error: err } = await supabase
@@ -73,7 +73,20 @@ export function useTasks() {
       .select('*, subtasks(*)')
       .single();
     if (err) { setError(err.message); return; }
-    setTasks((prev) => [...prev, { ...data, subtasks: [] }]);
+
+    let subtasks = [];
+    if (timesPerDay > 1) {
+      const rows = Array.from({ length: Math.min(timesPerDay, 10) }, (_, i) => ({
+        task_id: data.id,
+        label: String(i + 1),
+        position: i,
+      }));
+      const subRes = await supabase.from('subtasks').insert(rows).select('*');
+      if (subRes.error) setError(subRes.error.message);
+      else subtasks = subRes.data.sort((a, b) => a.position - b.position);
+    }
+
+    setTasks((prev) => [...prev, { ...data, subtasks }]);
   }, []);
 
   return { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask };

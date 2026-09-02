@@ -420,7 +420,7 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   border-radius: var(--radius-full);
   background: var(--border-soft);
   overflow: hidden;
-  margin: 14px 0 14px;
+  margin: 14px 0 0;
 }
 
 .task-progress-bar-fill {
@@ -433,6 +433,7 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 14px;
 }
 
 .task-subtask-chip {

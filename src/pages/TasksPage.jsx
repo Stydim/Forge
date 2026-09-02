@@ -14,17 +14,23 @@ const dateLabel = new Date().toLocaleDateString('ru-RU', {
   month: 'long',
 }).toUpperCase();
 
+function annotateSubtasks(subtasks) {
+  const firstPendingIndex = subtasks.findIndex((s) => !s.done);
+  return subtasks.map((s, i) => ({ ...s, active: i === firstPendingIndex }));
+}
+
 function deriveDisplay(task) {
   if (task.kind === 'goal') {
-    const total = task.subtasks.length;
-    const done = task.subtasks.filter((s) => s.done).length;
-    const firstPendingIndex = task.subtasks.findIndex((s) => !s.done);
-    const subtasks = task.subtasks.map((s, i) => ({ ...s, active: i === firstPendingIndex }));
+    const subtasks = annotateSubtasks(task.subtasks);
+    const total = subtasks.length;
+    const done = subtasks.filter((s) => s.done).length;
     const meta = task.due_at
       ? `${formatDaysLeft(task.due_at)} · ${done} из ${total} шагов`
       : `${done} из ${total} шагов`;
     return { ...task, subtasks, progress: total ? Math.round((done / total) * 100) : 0, meta, display: 'progress' };
   }
+
+  const subtasks = task.subtasks?.length ? annotateSubtasks(task.subtasks) : task.subtasks;
 
   const overdue = task.due_at && new Date(task.due_at).getTime() < Date.now();
   if (overdue) {
@@ -33,6 +39,7 @@ function deriveDisplay(task) {
       : '';
     return {
       ...task,
+      subtasks,
       meta: `${formatOverdue(task.due_at)} · ${task.reminder_count}-е напоминание${snoozePart}`,
       display: 'urgent',
     };
@@ -40,6 +47,7 @@ function deriveDisplay(task) {
 
   return {
     ...task,
+    subtasks,
     meta: task.due_at ? formatUpcoming(task.due_at, task.recurrence_note) : 'Без срока',
     display: 'normal',
   };
@@ -113,12 +121,28 @@ export default function TasksPage({ tasks: tasksState }) {
         <div className="task-list">
           {displayTasks.map((task) => {
             if (task.display === 'urgent') {
-              return <UrgentTaskCard key={task.id} task={task} onDone={handleDone} onSnooze={handleSnooze} />;
+              return (
+                <UrgentTaskCard
+                  key={task.id}
+                  task={task}
+                  onDone={handleDone}
+                  onSnooze={handleSnooze}
+                  onSubtaskClick={toggleSubtask}
+                />
+              );
             }
             if (task.display === 'progress') {
               return <ProgressTaskCard key={task.id} task={task} onSubtaskClick={toggleSubtask} />;
             }
-            return <NormalTaskCard key={task.id} task={task} onDone={handleDone} onSnooze={handleSnooze} />;
+            return (
+              <NormalTaskCard
+                key={task.id}
+                task={task}
+                onDone={handleDone}
+                onSnooze={handleSnooze}
+                onSubtaskClick={toggleSubtask}
+              />
+            );
           })}
         </div>
 
