@@ -33,19 +33,19 @@ const DAYS_OF_WEEK = [
 ];
 
 function buildRecurrenceNote(repeat, selectedDays, timesPerDay) {
-  if (repeat === 'none') return null;
-
-  let base;
+  let base = null;
   if (repeat === 'custom_days') {
-    if (selectedDays.length === 0) return null;
-    const labels = DAYS_OF_WEEK.filter((d) => selectedDays.includes(d.value)).map((d) => d.label);
-    base = `по ${labels.join(', ')}`;
-  } else {
+    if (selectedDays.length > 0) {
+      const labels = DAYS_OF_WEEK.filter((d) => selectedDays.includes(d.value)).map((d) => d.label);
+      base = `по ${labels.join(', ')}`;
+    }
+  } else if (repeat !== 'none') {
     base = REPEAT_NOTES[repeat];
   }
 
   if (timesPerDay > 1) {
-    base += ` · ${timesPerDay} ${pluralRu(timesPerDay, 'раз', 'раза', 'раз')} в день`;
+    const timesText = `${timesPerDay} ${pluralRu(timesPerDay, 'раз', 'раза', 'раз')} в день`;
+    base = base ? `${base} · ${timesText}` : timesText;
   }
   return base;
 }
@@ -151,28 +151,24 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
             </>
           )}
 
-          {repeat !== 'none' && (
-            <>
-              <div className="task-modal-label">Количество повторов в день</div>
-              <div className="task-modal-counter">
-                <button
-                  type="button"
-                  className="task-modal-counter-btn"
-                  onClick={() => setTimesPerDay((n) => Math.max(1, n - 1))}
-                >
-                  −
-                </button>
-                <span className="task-modal-counter-value">{timesPerDay}</span>
-                <button
-                  type="button"
-                  className="task-modal-counter-btn"
-                  onClick={() => setTimesPerDay((n) => Math.min(10, n + 1))}
-                >
-                  +
-                </button>
-              </div>
-            </>
-          )}
+          <div className="task-modal-label">Количество повторов в день</div>
+          <div className="task-modal-counter">
+            <button
+              type="button"
+              className="task-modal-counter-btn"
+              onClick={() => setTimesPerDay((n) => Math.max(1, n - 1))}
+            >
+              −
+            </button>
+            <span className="task-modal-counter-value">{timesPerDay}</span>
+            <button
+              type="button"
+              className="task-modal-counter-btn"
+              onClick={() => setTimesPerDay((n) => Math.min(10, n + 1))}
+            >
+              +
+            </button>
+          </div>
 
           <div className="task-modal-actions">
             <button type="button" className="task-modal-btn cancel" onClick={handleClose}>Отмена</button>
