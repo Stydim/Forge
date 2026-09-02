@@ -86,6 +86,8 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
       due_at: due ? new Date(due).toISOString() : null,
       recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay),
       timesPerDay,
+      repeatType: repeat,
+      repeatDays: selectedDays,
     });
     reset();
     onClose();

@@ -7,6 +7,12 @@ create table tasks (
   title text not null,
   due_at timestamptz,
   recurrence_note text,
+  -- Structured recurrence rule the engine reads to spawn the next occurrence on completion.
+  -- recurrence_note stays the cached display text (built client-side); these drive the logic.
+  repeat_type text not null default 'none'
+    check (repeat_type in ('none', 'daily', 'weekly', 'weekdays', 'weekends', 'monthly', 'yearly', 'custom_days')),
+  repeat_days text[],
+  times_per_day integer not null default 1,
   reminder_count integer not null default 0,
   snooze_count integer not null default 0,
   completed boolean not null default false,
