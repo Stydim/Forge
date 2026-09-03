@@ -1,4 +1,17 @@
+import { pluralRu } from './format';
+
 const DAY_INDEX = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+
+export const DAY_LABELS = { mon: 'Пн', tue: 'Вт', wed: 'Ср', thu: 'Чт', fri: 'Пт', sat: 'Сб', sun: 'Вс' };
+
+const REPEAT_LABELS = {
+  daily: 'ежедневно',
+  weekly: 'еженедельно',
+  weekdays: 'по будням',
+  weekends: 'по выходным',
+  monthly: 'ежемесячно',
+  yearly: 'ежегодно',
+};
 
 function addDays(date, n) {
   const d = new Date(date);
@@ -52,4 +65,38 @@ export function getNextOccurrence(currentDueAt, repeatType, repeatDays) {
     case 'custom_days': return nextCustomDay(base, repeatDays);
     default: return null;
   }
+}
+
+/**
+ * Builds the display text for a task's recurrence: the pattern (or specific
+ * days), how many times a day, and — if the series has a limit — how it ends.
+ * Used both when a task is first created and when the engine spawns the next
+ * occurrence (so "осталось N раз" stays accurate as the count ticks down).
+ */
+export function buildRecurrenceNote(repeatType, repeatDays, timesPerDay, endType, occurrencesLeft, endDateIso) {
+  let base = null;
+  if (repeatType === 'custom_days') {
+    if (repeatDays && repeatDays.length > 0) {
+      base = `по ${repeatDays.map((d) => DAY_LABELS[d]).join(', ')}`;
+    }
+  } else if (repeatType && repeatType !== 'none') {
+    base = REPEAT_LABELS[repeatType] ?? null;
+  }
+
+  if (timesPerDay > 1) {
+    const timesText = `${timesPerDay} ${pluralRu(timesPerDay, 'раз', 'раза', 'раз')} в день`;
+    base = base ? `${base} · ${timesText}` : timesText;
+  }
+
+  if (repeatType && repeatType !== 'none') {
+    let endSuffix = null;
+    if (endType === 'count' && occurrencesLeft != null) {
+      endSuffix = `осталось ${occurrencesLeft} ${pluralRu(occurrencesLeft, 'раз', 'раза', 'раз')}`;
+    } else if (endType === 'date' && endDateIso) {
+      endSuffix = `до ${new Date(endDateIso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`;
+    }
+    if (endSuffix) base = base ? `${base} · ${endSuffix}` : endSuffix;
+  }
+
+  return base;
 }

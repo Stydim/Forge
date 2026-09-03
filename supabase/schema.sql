@@ -13,6 +13,10 @@ create table tasks (
     check (repeat_type in ('none', 'daily', 'weekly', 'weekdays', 'weekends', 'monthly', 'yearly', 'custom_days')),
   repeat_days text[],
   times_per_day integer not null default 1,
+  -- How the series ends: never, after a fixed count, or on a cutoff date.
+  repeat_end_type text not null default 'never' check (repeat_end_type in ('never', 'count', 'date')),
+  repeat_end_date timestamptz,
+  repeat_occurrences_left integer,
   reminder_count integer not null default 0,
   snooze_count integer not null default 0,
   completed boolean not null default false,

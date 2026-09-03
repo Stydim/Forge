@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { getNextOccurrence } from '../lib/recurrence';
+import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
 
 async function createSubtaskRows(taskId, count) {
   if (count <= 1) return [];
@@ -59,16 +59,32 @@ export function useTasks() {
     const nextDate = getNextOccurrence(task.due_at, task.repeat_type, task.repeat_days);
     if (!nextDate) return;
 
+    // Respect "ends after N times" / "ends on date" — stop spawning once the series is done.
+    let occurrencesLeft = task.repeat_occurrences_left;
+    if (task.repeat_end_type === 'count') {
+      occurrencesLeft = (task.repeat_occurrences_left ?? 1) - 1;
+      if (occurrencesLeft <= 0) return;
+    }
+    if (task.repeat_end_type === 'date' && task.repeat_end_date && nextDate > new Date(task.repeat_end_date)) {
+      return;
+    }
+
     const { data: newTask, error: insertErr } = await supabase
       .from('tasks')
       .insert({
         kind: 'task',
         title: task.title,
         due_at: nextDate.toISOString(),
-        recurrence_note: task.recurrence_note,
+        recurrence_note: buildRecurrenceNote(
+          task.repeat_type, task.repeat_days, task.times_per_day,
+          task.repeat_end_type, occurrencesLeft, task.repeat_end_date,
+        ),
         repeat_type: task.repeat_type,
         repeat_days: task.repeat_days,
         times_per_day: task.times_per_day,
+        repeat_end_type: task.repeat_end_type,
+        repeat_end_date: task.repeat_end_date,
+        repeat_occurrences_left: task.repeat_end_type === 'count' ? occurrencesLeft : null,
       })
       .select('*, subtasks(*)')
       .single();
@@ -127,6 +143,9 @@ export function useTasks() {
     timesPerDay = 1,
     repeatType = 'none',
     repeatDays = null,
+    repeatEndType = 'never',
+    repeatCount = null,
+    repeatEndDate = null,
   }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
@@ -140,6 +159,9 @@ export function useTasks() {
         repeat_type: repeatType,
         repeat_days: repeatDays && repeatDays.length ? repeatDays : null,
         times_per_day: timesPerDay,
+        repeat_end_type: repeatType === 'none' ? 'never' : repeatEndType,
+        repeat_end_date: repeatEndType === 'date' ? repeatEndDate : null,
+        repeat_occurrences_left: repeatEndType === 'count' ? repeatCount : null,
       })
       .select('*, subtasks(*)')
       .single();

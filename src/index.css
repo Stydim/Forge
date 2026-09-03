@@ -881,6 +881,19 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   margin-bottom: 28px;
 }
 
+.task-modal-end-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.task-modal-end-grid .task-modal-repeat-btn {
+  text-align: center;
+  padding: 13px 8px;
+  font-size: 0.875rem;
+}
+
 .task-modal-repeat-btn {
   padding: 15px 16px;
   border-radius: 16px;
@@ -962,6 +975,11 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   text-align: center;
   font-size: 1.125rem;
   font-weight: 800;
+}
+
+.task-modal-counter-suffix {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
 }
 
 .task-modal-actions {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { pluralRu } from '../lib/format';
+import { buildRecurrenceNote } from '../lib/recurrence';
 
 const REPEAT_OPTIONS = [
   { value: 'none', label: 'Без повтора' },
@@ -12,16 +12,6 @@ const REPEAT_OPTIONS = [
   { value: 'custom_days', label: 'По дням недели' },
 ];
 
-const REPEAT_NOTES = {
-  none: null,
-  daily: 'ежедневно',
-  weekly: 'еженедельно',
-  weekdays: 'по будням',
-  weekends: 'по выходным',
-  monthly: 'ежемесячно',
-  yearly: 'ежегодно',
-};
-
 const DAYS_OF_WEEK = [
   { value: 'mon', label: 'Пн' },
   { value: 'tue', label: 'Вт' },
@@ -32,23 +22,11 @@ const DAYS_OF_WEEK = [
   { value: 'sun', label: 'Вс' },
 ];
 
-function buildRecurrenceNote(repeat, selectedDays, timesPerDay) {
-  let base = null;
-  if (repeat === 'custom_days') {
-    if (selectedDays.length > 0) {
-      const labels = DAYS_OF_WEEK.filter((d) => selectedDays.includes(d.value)).map((d) => d.label);
-      base = `по ${labels.join(', ')}`;
-    }
-  } else if (repeat !== 'none') {
-    base = REPEAT_NOTES[repeat];
-  }
-
-  if (timesPerDay > 1) {
-    const timesText = `${timesPerDay} ${pluralRu(timesPerDay, 'раз', 'раза', 'раз')} в день`;
-    base = base ? `${base} · ${timesText}` : timesText;
-  }
-  return base;
-}
+const END_OPTIONS = [
+  { value: 'never', label: 'Никогда' },
+  { value: 'count', label: 'После N раз' },
+  { value: 'date', label: 'До даты' },
+];
 
 export default function TaskFormModal({ open, onClose, onSubmit }) {
   const [title, setTitle] = useState('');
@@ -56,6 +34,9 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
   const [repeat, setRepeat] = useState('none');
   const [selectedDays, setSelectedDays] = useState([]);
   const [timesPerDay, setTimesPerDay] = useState(1);
+  const [endType, setEndType] = useState('never');
+  const [endCount, setEndCount] = useState(5);
+  const [endDate, setEndDate] = useState('');
 
   if (!open) return null;
 
@@ -65,6 +46,9 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
     setRepeat('none');
     setSelectedDays([]);
     setTimesPerDay(1);
+    setEndType('never');
+    setEndCount(5);
+    setEndDate('');
   };
 
   const handleClose = () => {
@@ -81,13 +65,21 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    const repeatEndType = repeat === 'none' ? 'never' : endType;
+    const repeatEndDate = repeatEndType === 'date' && endDate ? new Date(endDate).toISOString() : null;
+    const repeatCount = repeatEndType === 'count' ? endCount : null;
+
     onSubmit({
       title: title.trim(),
       due_at: due ? new Date(due).toISOString() : null,
-      recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay),
+      recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay, repeatEndType, repeatCount, repeatEndDate),
       timesPerDay,
       repeatType: repeat,
       repeatDays: selectedDays,
+      repeatEndType,
+      repeatCount,
+      repeatEndDate,
     });
     reset();
     onClose();
@@ -151,6 +143,55 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
                   </button>
                 ))}
               </div>
+            </>
+          )}
+
+          {repeat !== 'none' && (
+            <>
+              <div className="task-modal-label">Когда закончить повтор</div>
+              <div className="task-modal-end-grid">
+                {END_OPTIONS.map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.value}
+                    className={`task-modal-repeat-btn${endType === opt.value ? ' active' : ''}`}
+                    onClick={() => setEndType(opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {endType === 'count' && (
+                <div className="task-modal-counter" style={{ marginBottom: 28 }}>
+                  <button
+                    type="button"
+                    className="task-modal-counter-btn"
+                    onClick={() => setEndCount((n) => Math.max(1, n - 1))}
+                  >
+                    −
+                  </button>
+                  <span className="task-modal-counter-value">{endCount}</span>
+                  <button
+                    type="button"
+                    className="task-modal-counter-btn"
+                    onClick={() => setEndCount((n) => Math.min(365, n + 1))}
+                  >
+                    +
+                  </button>
+                  <span className="task-modal-counter-suffix">повторов</span>
+                </div>
+              )}
+
+              {endType === 'date' && (
+                <input
+                  className="task-modal-input"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{ marginBottom: 28 }}
+                />
+              )}
             </>
           )}
 
