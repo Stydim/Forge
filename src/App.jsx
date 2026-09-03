@@ -21,9 +21,12 @@ export default function App() {
     setModalOpen(true);
   };
 
+  const taskCount = tasks.tasks.filter((t) => t.kind === 'task').length;
+  const goalCount = tasks.tasks.filter((t) => t.kind === 'goal').length;
+
   return (
     <div className="app-layout">
-      <Sidebar onNewTask={openNewTaskModal} />
+      <Sidebar onNewTask={openNewTaskModal} taskCount={taskCount} goalCount={goalCount} />
       <main className="app-content">
         <Routes>
           <Route path="/" element={<TasksPage tasks={tasks} onEditTask={openEditTaskModal} />} />

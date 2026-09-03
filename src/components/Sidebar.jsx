@@ -3,15 +3,15 @@ import { getCharacter, DEFAULT_CHARACTER_ID } from '../lib/characters';
 
 const character = getCharacter(DEFAULT_CHARACTER_ID);
 
-const navItems = [
-  { to: '/tasks', label: 'Задачи', count: 3 },
-  { to: '/goals', label: 'Цели', count: 2 },
-  { to: '/progress', label: 'Прогресс' },
-  { to: '/characters', label: 'Персонажи' },
-  { to: '/settings', label: 'Настройки' },
-];
+export default function Sidebar({ onNewTask, taskCount, goalCount }) {
+  const navItems = [
+    { to: '/tasks', label: 'Задачи', count: taskCount },
+    { to: '/goals', label: 'Цели', count: goalCount },
+    { to: '/progress', label: 'Прогресс' },
+    { to: '/characters', label: 'Персонажи' },
+    { to: '/settings', label: 'Настройки' },
+  ];
 
-export default function Sidebar({ onNewTask }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
