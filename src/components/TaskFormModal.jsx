@@ -1,5 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { buildRecurrenceNote } from '../lib/recurrence';
+
+function toDatetimeLocalValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toDateValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 const REPEAT_OPTIONS = [
   { value: 'none', label: 'Без повтора' },
@@ -28,7 +42,7 @@ const END_OPTIONS = [
   { value: 'date', label: 'До даты' },
 ];
 
-export default function TaskFormModal({ open, onClose, onSubmit }) {
+export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editingTask }) {
   const [title, setTitle] = useState('');
   const [due, setDue] = useState('');
   const [repeat, setRepeat] = useState('none');
@@ -38,23 +52,30 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
   const [endCount, setEndCount] = useState(5);
   const [endDate, setEndDate] = useState('');
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingTask) {
+      setTitle(editingTask.title);
+      setDue(toDatetimeLocalValue(editingTask.due_at));
+      setRepeat(editingTask.repeat_type || 'none');
+      setSelectedDays(editingTask.repeat_days || []);
+      setTimesPerDay(editingTask.times_per_day || 1);
+      setEndType(editingTask.repeat_end_type || 'never');
+      setEndCount(editingTask.repeat_occurrences_left || 5);
+      setEndDate(toDateValue(editingTask.repeat_end_date));
+    } else {
+      setTitle('');
+      setDue('');
+      setRepeat('none');
+      setSelectedDays([]);
+      setTimesPerDay(1);
+      setEndType('never');
+      setEndCount(5);
+      setEndDate('');
+    }
+  }, [open, editingTask]);
+
   if (!open) return null;
-
-  const reset = () => {
-    setTitle('');
-    setDue('');
-    setRepeat('none');
-    setSelectedDays([]);
-    setTimesPerDay(1);
-    setEndType('never');
-    setEndCount(5);
-    setEndDate('');
-  };
-
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
 
   const toggleDay = (value) => {
     setSelectedDays((prev) => (
@@ -70,7 +91,7 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
     const repeatEndDate = repeatEndType === 'date' && endDate ? new Date(endDate).toISOString() : null;
     const repeatCount = repeatEndType === 'count' ? endCount : null;
 
-    onSubmit({
+    const payload = {
       title: title.trim(),
       due_at: due ? new Date(due).toISOString() : null,
       recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay, repeatEndType, repeatCount, repeatEndDate),
@@ -80,18 +101,22 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
       repeatEndType,
       repeatCount,
       repeatEndDate,
-    });
-    reset();
+    };
+
+    if (editingTask) onUpdate(editingTask.id, payload);
+    else onCreate(payload);
     onClose();
   };
 
   return (
-    <div className="task-modal-overlay" onClick={handleClose}>
+    <div className="task-modal-overlay" onClick={onClose}>
       <div className="task-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="task-modal-close" onClick={handleClose} aria-label="Закрыть">×</button>
+        <button className="task-modal-close" onClick={onClose} aria-label="Закрыть">×</button>
 
-        <h2 className="task-modal-title">Новая задача</h2>
-        <p className="task-modal-subtitle">Опиши, что и когда, повтор — по желанию</p>
+        <h2 className="task-modal-title">{editingTask ? 'Изменить задачу' : 'Новая задача'}</h2>
+        <p className="task-modal-subtitle">
+          {editingTask ? 'Поправь текст, дату или повтор' : 'Опиши, что и когда, повтор — по желанию'}
+        </p>
 
         <form onSubmit={handleSubmit}>
           <label className="task-modal-label" htmlFor="task-modal-title-input">Текст задачи</label>
@@ -215,7 +240,7 @@ export default function TaskFormModal({ open, onClose, onSubmit }) {
           </div>
 
           <div className="task-modal-actions">
-            <button type="button" className="task-modal-btn cancel" onClick={handleClose}>Отмена</button>
+            <button type="button" className="task-modal-btn cancel" onClick={onClose}>Отмена</button>
             <button type="submit" className="task-modal-btn save">Сохранить</button>
           </div>
         </form>

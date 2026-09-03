@@ -1,3 +1,5 @@
+import { Pencil } from 'lucide-react';
+
 function SubtaskChips({ subtasks, onSubtaskClick }) {
   if (!subtasks || subtasks.length === 0) return null;
   return (
@@ -15,7 +17,16 @@ function SubtaskChips({ subtasks, onSubtaskClick }) {
   );
 }
 
-export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
+function EditButton({ task, onEdit }) {
+  if (!onEdit) return null;
+  return (
+    <button className="task-card-icon-btn" onClick={() => onEdit(task)} aria-label="Изменить задачу">
+      <Pencil size={16} />
+    </button>
+  );
+}
+
+export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit }) {
   return (
     <div className="task-card urgent">
       <div className="task-card-row">
@@ -30,6 +41,7 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
           <button className="btn-pill btn-pill-outline-red" onClick={() => onSnooze?.(task.id)}>
             +1 час
           </button>
+          <EditButton task={task} onEdit={onEdit} />
         </div>
       </div>
       <SubtaskChips subtasks={task.subtasks} onSubtaskClick={onSubtaskClick} />
@@ -37,7 +49,7 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
   );
 }
 
-export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
+export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit }) {
   return (
     <div className="task-card">
       <div className="task-card-row">
@@ -52,6 +64,7 @@ export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick }) {
           <button className="btn-pill btn-pill-outline" onClick={() => onSnooze?.(task.id)}>
             Отложить
           </button>
+          <EditButton task={task} onEdit={onEdit} />
         </div>
       </div>
       <SubtaskChips subtasks={task.subtasks} onSubtaskClick={onSubtaskClick} />

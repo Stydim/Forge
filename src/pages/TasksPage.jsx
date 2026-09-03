@@ -53,7 +53,7 @@ function deriveDisplay(task) {
   };
 }
 
-export default function TasksPage({ tasks: tasksState }) {
+export default function TasksPage({ tasks: tasksState, onEditTask }) {
   const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const [lang, setLang] = useState('ru');
@@ -128,6 +128,7 @@ export default function TasksPage({ tasks: tasksState }) {
                   onDone={handleDone}
                   onSnooze={handleSnooze}
                   onSubtaskClick={toggleSubtask}
+                  onEdit={onEditTask}
                 />
               );
             }
@@ -141,6 +142,7 @@ export default function TasksPage({ tasks: tasksState }) {
                 onDone={handleDone}
                 onSnooze={handleSnooze}
                 onSubtaskClick={toggleSubtask}
+                onEdit={onEditTask}
               />
             );
           })}

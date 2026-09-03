@@ -17,6 +17,35 @@ async function createSubtaskRows(taskId, count) {
   return data.sort((a, b) => a.position - b.position);
 }
 
+// Adds/removes daily-reminder chip rows so the count matches the edited
+// "Количество повторов в день", keeping existing chips (and their done state).
+async function reconcileSubtaskRows(taskId, currentSubtasks, newCount) {
+  const target = Math.min(Math.max(newCount, 1), 10);
+  const sorted = [...currentSubtasks].sort((a, b) => a.position - b.position);
+
+  if (target <= 1) {
+    if (sorted.length > 0) await supabase.from('subtasks').delete().in('id', sorted.map((s) => s.id));
+    return [];
+  }
+  if (sorted.length === target) return sorted;
+
+  if (sorted.length < target) {
+    const rows = Array.from({ length: target - sorted.length }, (_, i) => ({
+      task_id: taskId,
+      label: String(sorted.length + i + 1),
+      position: sorted.length + i,
+    }));
+    const { data, error } = await supabase.from('subtasks').insert(rows).select('*');
+    if (error) { console.warn('subtask reconcile failed:', error.message); return sorted; }
+    return [...sorted, ...data].sort((a, b) => a.position - b.position);
+  }
+
+  const toKeep = sorted.slice(0, target);
+  const toRemove = sorted.slice(target);
+  await supabase.from('subtasks').delete().in('id', toRemove.map((s) => s.id));
+  return toKeep;
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,5 +200,40 @@ export function useTasks() {
     setTasks((prev) => [...prev, { ...data, subtasks }]);
   }, []);
 
-  return { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask };
+  const updateTask = useCallback(async (id, {
+    title,
+    due_at = null,
+    recurrence_note = null,
+    timesPerDay = 1,
+    repeatType = 'none',
+    repeatDays = null,
+    repeatEndType = 'never',
+    repeatCount = null,
+    repeatEndDate = null,
+  }) => {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    const dbFields = {
+      title: trimmed,
+      due_at,
+      recurrence_note,
+      repeat_type: repeatType,
+      repeat_days: repeatDays && repeatDays.length ? repeatDays : null,
+      times_per_day: timesPerDay,
+      repeat_end_type: repeatType === 'none' ? 'never' : repeatEndType,
+      repeat_end_date: repeatEndType === 'date' ? repeatEndDate : null,
+      repeat_occurrences_left: repeatEndType === 'count' ? repeatCount : null,
+    };
+
+    const { error: err } = await supabase.from('tasks').update(dbFields).eq('id', id);
+    if (err) { setError(err.message); load(); return; }
+
+    const subtasks = await reconcileSubtaskRows(id, task.subtasks, timesPerDay);
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...dbFields, subtasks } : t)));
+  }, [tasks, load]);
+
+  return { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask, updateTask };
 }
