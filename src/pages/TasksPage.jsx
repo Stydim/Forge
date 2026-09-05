@@ -94,18 +94,32 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
   const { stage, lines: fallbackLines } = getCharacterState(character, activeTask);
   const [aiLines, setAiLines] = useState(null);
   const [aiFailed, setAiFailed] = useState(false);
-  const gnomeKeyRef = useRef(null);
+  // Remembers each task's last-generated dialogue (by task id) so switching
+  // back to a task you've already viewed reuses it instead of asking the AI
+  // again. Only a stage change (snoozing that specific task) invalidates it —
+  // that's what actually costs money, so it's the only thing allowed to.
+  const dialogueCacheRef = useRef(new Map());
+  const requestKeyRef = useRef(null);
 
   useEffect(() => {
     if (!activeTask) {
-      gnomeKeyRef.current = null;
+      requestKeyRef.current = null;
       setAiLines(null);
       setAiFailed(false);
       return;
     }
+
     const key = `${activeTask.id}:${stage}`;
-    if (gnomeKeyRef.current === key) return;
-    gnomeKeyRef.current = key;
+    const cached = dialogueCacheRef.current.get(activeTask.id);
+    if (cached && cached.stage === stage) {
+      requestKeyRef.current = key;
+      setAiLines(cached.lines);
+      setAiFailed(false);
+      return;
+    }
+
+    if (requestKeyRef.current === key) return; // this exact combo is already in flight
+    requestKeyRef.current = key;
     // Don't fall back to the static phrase here — that's what caused the
     // "old pinned phrase flashes, then the real one replaces it" flicker.
     // Show a loading state instead, and only use the static lines if the AI
@@ -120,9 +134,13 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
       taskTitle: activeTask.title,
       snoozeCount: activeTask.snooze_count,
     }).then((result) => {
-      if (gnomeKeyRef.current !== key) return; // a newer request superseded this one
-      if (result) setAiLines(result);
-      else setAiFailed(true);
+      if (requestKeyRef.current !== key) return; // a newer request superseded this one
+      if (result) {
+        dialogueCacheRef.current.set(activeTask.id, { stage, lines: result });
+        setAiLines(result);
+      } else {
+        setAiFailed(true);
+      }
     });
   }, [activeTask, stage]);
 
