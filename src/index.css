@@ -784,6 +784,15 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   font-size: 1.25rem;
 }
 
+.character-avatar.missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-weight: 800;
+  font-size: 3rem;
+}
+
 .character-name {
   font-weight: 800;
   font-size: 1.0625rem;

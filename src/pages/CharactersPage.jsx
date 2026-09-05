@@ -1,4 +1,18 @@
+import { useState } from 'react';
 import { CHARACTERS, COMING_SOON_CHARACTERS, DEFAULT_CHARACTER_ID } from '../lib/characters';
+
+function CharacterAvatar({ character }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className="character-avatar missing">{character.name[0]}</div>;
+  return (
+    <img
+      className="character-avatar"
+      src={character.avatar}
+      alt={character.name}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 export default function CharactersPage() {
   return (
@@ -14,7 +28,7 @@ export default function CharactersPage() {
         {CHARACTERS.map((c) => (
           <div key={c.id} className="character-card">
             <div className="character-card-head">
-              <img className="character-avatar" src={c.avatar} alt={c.name} />
+              <CharacterAvatar character={c} />
               <div>
                 <div className="character-name">{c.name}</div>
                 <div className="character-tagline">{c.tagline}</div>
