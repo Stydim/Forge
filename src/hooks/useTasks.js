@@ -104,6 +104,7 @@ export function useTasks() {
         kind: 'task',
         title: task.title,
         due_at: nextDate.toISOString(),
+        due_has_time: task.due_has_time,
         recurrence_note: buildRecurrenceNote(
           task.repeat_type, task.repeat_days, task.times_per_day,
           task.repeat_end_type, occurrencesLeft, task.repeat_end_date,
@@ -168,6 +169,7 @@ export function useTasks() {
   const addTask = useCallback(async ({
     title,
     due_at = null,
+    dueHasTime = true,
     recurrence_note = null,
     timesPerDay = 1,
     repeatType = 'none',
@@ -184,6 +186,7 @@ export function useTasks() {
         kind: 'task',
         title: trimmed,
         due_at,
+        due_has_time: dueHasTime,
         recurrence_note,
         repeat_type: repeatType,
         repeat_days: repeatDays && repeatDays.length ? repeatDays : null,
@@ -203,6 +206,7 @@ export function useTasks() {
   const updateTask = useCallback(async (id, {
     title,
     due_at = null,
+    dueHasTime = true,
     recurrence_note = null,
     timesPerDay = 1,
     repeatType = 'none',
@@ -219,6 +223,7 @@ export function useTasks() {
     const dbFields = {
       title: trimmed,
       due_at,
+      due_has_time: dueHasTime,
       recurrence_note,
       repeat_type: repeatType,
       repeat_days: repeatDays && repeatDays.length ? repeatDays : null,
@@ -235,5 +240,5 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...dbFields, subtasks } : t)));
   }, [tasks, load]);
 
-  return { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask, updateTask };
+  return { tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask, addTask, updateTask };
 }

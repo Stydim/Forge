@@ -871,6 +871,23 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   margin-bottom: 8px;
 }
 
+.task-modal-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.task-modal-checkbox-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-teal);
+  cursor: pointer;
+}
+
 .task-modal-textarea,
 .task-modal-input {
   width: 100%;
@@ -1030,6 +1047,56 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 .task-modal-btn.save:hover {
   background: #C94F3F;
+}
+
+/* ---------- Archive page ---------- */
+.archive-page {
+  padding: 32px;
+  max-width: 760px;
+}
+
+.archive-empty {
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  text-align: center;
+}
+
+.archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.archive-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.archive-item-title {
+  font-weight: 700;
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.archive-item-meta {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.archive-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 /* ---------- Responsive ---------- */

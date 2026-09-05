@@ -16,12 +16,13 @@ export function formatOverdue(dueAt) {
   return `Просрочено ${hours} ${pluralRu(hours, 'час', 'часа', 'часов')}`;
 }
 
-export function formatUpcoming(dueAt, recurrenceNote) {
+export function formatUpcoming(dueAt, recurrenceNote, hasTime = true) {
   const date = new Date(dueAt);
   const isToday = date.toDateString() === new Date().toDateString();
-  const time = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   const day = isToday ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-  const base = `${day}, ${time}`;
+  const base = hasTime
+    ? `${day}, ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+    : day;
   return recurrenceNote ? `${base} · ${recurrenceNote}` : base;
 }
 

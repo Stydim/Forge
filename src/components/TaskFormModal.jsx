@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { buildRecurrenceNote } from '../lib/recurrence';
 
-function toDatetimeLocalValue(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function toDateValue(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toTimeValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const REPEAT_OPTIONS = [
@@ -44,7 +44,9 @@ const END_OPTIONS = [
 
 export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editingTask }) {
   const [title, setTitle] = useState('');
-  const [due, setDue] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  const [hasTime, setHasTime] = useState(true);
   const [repeat, setRepeat] = useState('none');
   const [selectedDays, setSelectedDays] = useState([]);
   const [timesPerDay, setTimesPerDay] = useState(1);
@@ -56,7 +58,9 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
     if (!open) return;
     if (editingTask) {
       setTitle(editingTask.title);
-      setDue(toDatetimeLocalValue(editingTask.due_at));
+      setDueDate(toDateValue(editingTask.due_at));
+      setDueTime(toTimeValue(editingTask.due_at));
+      setHasTime(editingTask.due_at ? editingTask.due_has_time ?? true : true);
       setRepeat(editingTask.repeat_type || 'none');
       setSelectedDays(editingTask.repeat_days || []);
       setTimesPerDay(editingTask.times_per_day || 1);
@@ -65,7 +69,9 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
       setEndDate(toDateValue(editingTask.repeat_end_date));
     } else {
       setTitle('');
-      setDue('');
+      setDueDate('');
+      setDueTime('');
+      setHasTime(true);
       setRepeat('none');
       setSelectedDays([]);
       setTimesPerDay(1);
@@ -91,9 +97,13 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
     const repeatEndDate = repeatEndType === 'date' && endDate ? new Date(endDate).toISOString() : null;
     const repeatCount = repeatEndType === 'count' ? endCount : null;
 
+    const dueHasTime = dueDate ? hasTime : true;
+    const due_at = dueDate ? new Date(`${dueDate}T${dueHasTime && dueTime ? dueTime : '00:00'}`).toISOString() : null;
+
     const payload = {
       title: title.trim(),
-      due_at: due ? new Date(due).toISOString() : null,
+      due_at,
+      dueHasTime,
       recurrence_note: buildRecurrenceNote(repeat, selectedDays, timesPerDay, repeatEndType, repeatCount, repeatEndDate),
       timesPerDay,
       repeatType: repeat,
@@ -134,10 +144,32 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
           <input
             id="task-modal-due-input"
             className="task-modal-input"
-            type="datetime-local"
-            value={due}
-            onChange={(e) => setDue(e.target.value)}
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            style={{ marginBottom: dueDate ? 12 : 20 }}
           />
+
+          {dueDate && (
+            <>
+              <label className="task-modal-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={hasTime}
+                  onChange={(e) => setHasTime(e.target.checked)}
+                />
+                Указать время
+              </label>
+              {hasTime && (
+                <input
+                  className="task-modal-input"
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                />
+              )}
+            </>
+          )}
 
           <div className="task-modal-label">Повтор</div>
           <div className="task-modal-repeat-grid">

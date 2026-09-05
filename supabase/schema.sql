@@ -6,6 +6,8 @@ create table tasks (
   kind text not null default 'task' check (kind in ('task', 'goal')),
   title text not null,
   due_at timestamptz,
+  -- False when only a date was picked (no specific time) — display omits the clock time.
+  due_has_time boolean not null default true,
   recurrence_note text,
   -- Structured recurrence rule the engine reads to spawn the next occurrence on completion.
   -- recurrence_note stays the cached display text (built client-side); these drive the logic.

@@ -48,7 +48,7 @@ function deriveDisplay(task) {
   return {
     ...task,
     subtasks,
-    meta: task.due_at ? formatUpcoming(task.due_at, task.recurrence_note) : 'Без срока',
+    meta: task.due_at ? formatUpcoming(task.due_at, task.recurrence_note, task.due_has_time) : 'Без срока',
     display: 'normal',
   };
 }
