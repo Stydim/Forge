@@ -7,14 +7,29 @@ import ArchivePage from './pages/ArchivePage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
 
+const SELECTED_TASK_KEY = 'forge:selected-task-id';
+
 export default function App() {
   const tasks = useTasks();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   // Lives here (not inside TasksPage) so it survives TasksPage remounting —
   // e.g. the sidebar's Цели/Прогресс links currently redirect back to
-  // Tasks since those pages don't exist yet, which would otherwise reset it.
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  // Tasks since those pages don't exist yet. Persisted to localStorage too,
+  // so a full page reload (F5) keeps showing the same task's dialogue
+  // instead of falling back to auto-focus and losing the pinned choice.
+  const [selectedTaskId, setSelectedTaskIdState] = useState(() => {
+    try { return localStorage.getItem(SELECTED_TASK_KEY) || null; } catch { return null; }
+  });
+  const setSelectedTaskId = (id) => {
+    setSelectedTaskIdState(id);
+    try {
+      if (id) localStorage.setItem(SELECTED_TASK_KEY, id);
+      else localStorage.removeItem(SELECTED_TASK_KEY);
+    } catch {
+      // localStorage unavailable — selection just won't survive a reload.
+    }
+  };
 
   const openNewTaskModal = () => {
     setEditingTask(null);

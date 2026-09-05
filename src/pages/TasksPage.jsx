@@ -6,14 +6,9 @@ import { useStats } from '../hooks/useStats';
 import { getCharacter, getCharacterState, DEFAULT_CHARACTER_ID } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
 import { parseTaskText, fetchGnomeLines } from '../lib/api';
+import { getDialogue, setDialogue } from '../lib/dialogueCache';
 
 const character = getCharacter(DEFAULT_CHARACTER_ID);
-
-// Module-level (not component state) so it survives TasksPage remounting —
-// e.g. the sidebar's Цели/Прогресс links currently redirect back here since
-// those pages don't exist yet, which would otherwise wipe a ref/state cache
-// and re-trigger a paid AI call for a task we'd already generated one for.
-const dialogueCache = new Map(); // taskId -> { stage, lines }
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -110,7 +105,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     }
 
     const key = `${activeTask.id}:${stage}`;
-    const cached = dialogueCache.get(activeTask.id);
+    const cached = getDialogue(activeTask.id);
     if (cached && cached.stage === stage) {
       requestKeyRef.current = key;
       setAiLines(cached.lines);
@@ -136,7 +131,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     }).then((result) => {
       if (requestKeyRef.current !== key) return; // a newer request superseded this one
       if (result) {
-        dialogueCache.set(activeTask.id, { stage, lines: result });
+        setDialogue(activeTask.id, stage, result);
         setAiLines(result);
       } else {
         setAiFailed(true);
