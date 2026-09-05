@@ -73,24 +73,35 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
             : `${overdueCount} уже просят внимания.`
       }`;
 
-  const focusTask = useMemo(() => {
+  // Which task/goal's dialogue is shown in the gnome panel. Defaults to the
+  // most urgent one, but clicking any card (or snoozing it) switches to that
+  // task specifically — its own title and its own snooze count, not the pack's.
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+  const autoFocusTask = useMemo(() => {
     const urgent = displayTasks.filter((t) => t.display === 'urgent');
     if (urgent.length) return urgent.sort((a, b) => b.snooze_count - a.snooze_count)[0];
     const snoozed = displayTasks.filter((t) => t.kind === 'task' && t.snooze_count > 0);
-    return snoozed.sort((a, b) => b.snooze_count - a.snooze_count)[0] ?? null;
+    if (snoozed.length) return snoozed.sort((a, b) => b.snooze_count - a.snooze_count)[0];
+    return displayTasks[0] ?? null;
   }, [displayTasks]);
 
-  const { stage, lines: fallbackLines } = getCharacterState(character, focusTask);
+  const activeTask = useMemo(() => {
+    const selected = selectedTaskId ? displayTasks.find((t) => t.id === selectedTaskId) : null;
+    return selected ?? autoFocusTask;
+  }, [selectedTaskId, displayTasks, autoFocusTask]);
+
+  const { stage, lines: fallbackLines } = getCharacterState(character, activeTask);
   const [aiLines, setAiLines] = useState(null);
   const gnomeKeyRef = useRef(null);
 
   useEffect(() => {
-    if (!focusTask) {
+    if (!activeTask) {
       gnomeKeyRef.current = null;
       setAiLines(null);
       return;
     }
-    const key = `${focusTask.id}:${stage}`;
+    const key = `${activeTask.id}:${stage}`;
     if (gnomeKeyRef.current === key) return;
     gnomeKeyRef.current = key;
     setAiLines(null);
@@ -99,21 +110,22 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
       characterPower: character.power,
       characterHelps: character.helps,
       stage,
-      taskTitle: focusTask.title,
-      snoozeCount: focusTask.snooze_count,
+      taskTitle: activeTask.title,
+      snoozeCount: activeTask.snooze_count,
     }).then((result) => {
       if (result && gnomeKeyRef.current === key) setAiLines(result);
     });
-  }, [focusTask, stage]);
+  }, [activeTask, stage]);
 
   const lines = aiLines ?? fallbackLines;
-  const snoozeEcho = focusTask?.snooze_count
-    ? `Отложено ${focusTask.snooze_count} ${pluralRu(focusTask.snooze_count, 'раз', 'раза', 'раз')}`
+  const snoozeEcho = activeTask?.snooze_count
+    ? `Отложено ${activeTask.snooze_count} ${pluralRu(activeTask.snooze_count, 'раз', 'раза', 'раз')}`
     : null;
   const caption = stats ? describeSnoozePattern(stats.hourBuckets) : null;
 
   const handleDone = (id) => { completeTask(id); reloadStats(); };
-  const handleSnooze = (id) => { snoozeTask(id); reloadStats(); };
+  const handleSnooze = (id) => { setSelectedTaskId(id); snoozeTask(id); reloadStats(); };
+  const handleSelect = (id) => setSelectedTaskId(id);
 
   const [parsing, setParsing] = useState(false);
 
@@ -158,6 +170,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
 
         <div className="task-list">
           {displayTasks.map((task) => {
+            const selected = task.id === activeTask?.id;
             if (task.display === 'urgent') {
               return (
                 <UrgentTaskCard
@@ -167,11 +180,21 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
                   onSnooze={handleSnooze}
                   onSubtaskClick={toggleSubtask}
                   onEdit={onEditTask}
+                  onSelect={handleSelect}
+                  selected={selected}
                 />
               );
             }
             if (task.display === 'progress') {
-              return <ProgressTaskCard key={task.id} task={task} onSubtaskClick={toggleSubtask} />;
+              return (
+                <ProgressTaskCard
+                  key={task.id}
+                  task={task}
+                  onSubtaskClick={toggleSubtask}
+                  onSelect={handleSelect}
+                  selected={selected}
+                />
+              );
             }
             return (
               <NormalTaskCard
@@ -181,6 +204,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
                 onSnooze={handleSnooze}
                 onSubtaskClick={toggleSubtask}
                 onEdit={onEditTask}
+                onSelect={handleSelect}
+                selected={selected}
               />
             );
           })}
@@ -204,6 +229,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
 
       <GnomePanel
         character={character}
+        activeTaskTitle={activeTask?.title}
         stage={stage}
         lines={lines}
         snoozeEcho={snoozeEcho}

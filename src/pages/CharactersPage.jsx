@@ -1,15 +1,13 @@
 import { CHARACTERS, COMING_SOON_CHARACTERS, DEFAULT_CHARACTER_ID } from '../lib/characters';
 
-const SAMPLE_TITLE = 'Задача';
-
 export default function CharactersPage() {
   return (
     <div className="characters-page">
       <div className="page-date">ПЕРСОНАЖИ</div>
       <h1 className="page-heading">Кто будет напоминать</h1>
       <p className="characters-subtitle">
-        У каждого персонажа семь ступеней эскалации — тон меняется с каждым отложенным напоминанием.
-        Фразы каждый раз сочиняются заново под характер персонажа; ниже — примерный диапазон тона.
+        Тон эскалирует с каждым отложенным напоминанием — от мягкого к резкому. Реплики каждый раз
+        сочиняются заново под конкретную задачу и характер персонажа.
       </p>
 
       <div className="characters-grid">
@@ -30,15 +28,6 @@ export default function CharactersPage() {
                 {c.helps && <div><strong>Помогает:</strong> {c.helps}</div>}
               </div>
             )}
-
-            <div className="character-stages">
-              {c.stages.map((lines, i) => (
-                <div key={i} className="character-stage-row">
-                  <span className="character-stage-num">{i + 1}</span>
-                  <span className="character-stage-text">{lines[0].replaceAll('{title}', SAMPLE_TITLE)}</span>
-                </div>
-              ))}
-            </div>
           </div>
         ))}
 

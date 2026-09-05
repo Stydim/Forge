@@ -26,9 +26,9 @@ function EditButton({ task, onEdit }) {
   );
 }
 
-export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit }) {
+export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected }) {
   return (
-    <div className="task-card urgent">
+    <div className={`task-card urgent${selected ? ' selected' : ''}`} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
         <div>
           <div className="task-card-title">{task.title}</div>
@@ -49,9 +49,9 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit 
   );
 }
 
-export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit }) {
+export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected }) {
   return (
-    <div className="task-card">
+    <div className={`task-card${selected ? ' selected' : ''}`} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
         <div>
           <div className="task-card-title">{task.title}</div>
@@ -72,9 +72,9 @@ export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit 
   );
 }
 
-export function ProgressTaskCard({ task, onSubtaskClick }) {
+export function ProgressTaskCard({ task, onSubtaskClick, onSelect, selected }) {
   return (
-    <div className="task-card">
+    <div className={`task-card${selected ? ' selected' : ''}`} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
         <div>
           <div className="task-card-title">{task.title}</div>

@@ -338,11 +338,18 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .task-card.urgent {
   background: var(--accent-red-bg);
   border-color: var(--accent-red-border);
+}
+
+.task-card.selected {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 2px var(--accent-teal-bg);
 }
 
 .task-card-row {
@@ -588,6 +595,16 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .gnome-panel-title {
   font-size: 1rem;
   font-weight: 800;
+}
+
+.gnome-panel-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
 }
 
 .gnome-stage-badge {

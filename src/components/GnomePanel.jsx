@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-export default function GnomePanel({ character, stage, lines, snoozeEcho, hourBuckets, caption }) {
+export default function GnomePanel({ character, activeTaskTitle, stage, lines, snoozeEcho, hourBuckets, caption }) {
   const maxVal = Math.max(1, ...(hourBuckets ?? []));
 
   return (
@@ -8,7 +8,10 @@ export default function GnomePanel({ character, stage, lines, snoozeEcho, hourBu
       <div className="gnome-panel-header">
         <div className="gnome-panel-title-row">
           <img className="gnome-panel-avatar" src={character.avatar} alt={character.name} />
-          <div className="gnome-panel-title">Диалог с гномом</div>
+          <div>
+            <div className="gnome-panel-title">Диалог с гномом</div>
+            {activeTaskTitle && <div className="gnome-panel-subtitle">{activeTaskTitle}</div>}
+          </div>
         </div>
         <div className="gnome-stage-badge">{stage ? `СТУПЕНЬ ${stage}` : 'ВСЁ ЧИСТО'}</div>
       </div>
