@@ -39,5 +39,11 @@ export function useArchive(onChange) {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  return { tasks, loading, error, restoreTask, deleteForever };
+  const deleteMany = useCallback(async (ids) => {
+    setTasks((prev) => prev.filter((t) => !ids.includes(t.id)));
+    const { error: err } = await supabase.from('tasks').delete().in('id', ids);
+    if (err) { setError(err.message); load(); }
+  }, [load]);
+
+  return { tasks, loading, error, restoreTask, deleteForever, deleteMany };
 }
