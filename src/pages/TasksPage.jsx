@@ -9,6 +9,12 @@ import { parseTaskText, fetchGnomeLines } from '../lib/api';
 
 const character = getCharacter(DEFAULT_CHARACTER_ID);
 
+// Module-level (not component state) so it survives TasksPage remounting —
+// e.g. the sidebar's Цели/Прогресс links currently redirect back here since
+// those pages don't exist yet, which would otherwise wipe a ref/state cache
+// and re-trigger a paid AI call for a task we'd already generated one for.
+const dialogueCache = new Map(); // taskId -> { stage, lines }
+
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
   day: 'numeric',
@@ -54,7 +60,7 @@ function deriveDisplay(task) {
   };
 }
 
-export default function TasksPage({ tasks: tasksState, onEditTask }) {
+export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask }) {
   const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const [lang, setLang] = useState('ru');
@@ -73,11 +79,10 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
             : `${overdueCount} уже просят внимания.`
       }`;
 
-  // Which task/goal's dialogue is shown in the gnome panel. Defaults to the
-  // most urgent one, but clicking any card (or snoozing it) switches to that
-  // task specifically — its own title and its own snooze count, not the pack's.
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
-
+  // Which task/goal's dialogue is shown in the gnome panel (selectedTaskId
+  // lives in App so it survives this page remounting). Defaults to the most
+  // urgent one, but clicking any card (or snoozing it) switches to that task
+  // specifically — its own title and its own snooze count, not the pack's.
   const autoFocusTask = useMemo(() => {
     const urgent = displayTasks.filter((t) => t.display === 'urgent');
     if (urgent.length) return urgent.sort((a, b) => b.snooze_count - a.snooze_count)[0];
@@ -94,11 +99,6 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
   const { stage, lines: fallbackLines } = getCharacterState(character, activeTask);
   const [aiLines, setAiLines] = useState(null);
   const [aiFailed, setAiFailed] = useState(false);
-  // Remembers each task's last-generated dialogue (by task id) so switching
-  // back to a task you've already viewed reuses it instead of asking the AI
-  // again. Only a stage change (snoozing that specific task) invalidates it —
-  // that's what actually costs money, so it's the only thing allowed to.
-  const dialogueCacheRef = useRef(new Map());
   const requestKeyRef = useRef(null);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
     }
 
     const key = `${activeTask.id}:${stage}`;
-    const cached = dialogueCacheRef.current.get(activeTask.id);
+    const cached = dialogueCache.get(activeTask.id);
     if (cached && cached.stage === stage) {
       requestKeyRef.current = key;
       setAiLines(cached.lines);
@@ -136,7 +136,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
     }).then((result) => {
       if (requestKeyRef.current !== key) return; // a newer request superseded this one
       if (result) {
-        dialogueCacheRef.current.set(activeTask.id, { stage, lines: result });
+        dialogueCache.set(activeTask.id, { stage, lines: result });
         setAiLines(result);
       } else {
         setAiFailed(true);
@@ -152,8 +152,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
   const caption = stats ? describeSnoozePattern(stats.hourBuckets) : null;
 
   const handleDone = (id) => { completeTask(id); reloadStats(); };
-  const handleSnooze = (id) => { setSelectedTaskId(id); snoozeTask(id); reloadStats(); };
-  const handleSelect = (id) => setSelectedTaskId(id);
+  const handleSnooze = (id) => { onSelectTask(id); snoozeTask(id); reloadStats(); };
+  const handleSelect = (id) => onSelectTask(id);
 
   const [parsing, setParsing] = useState(false);
 

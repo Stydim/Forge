@@ -11,6 +11,10 @@ export default function App() {
   const tasks = useTasks();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  // Lives here (not inside TasksPage) so it survives TasksPage remounting —
+  // e.g. the sidebar's Цели/Прогресс links currently redirect back to
+  // Tasks since those pages don't exist yet, which would otherwise reset it.
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   const openNewTaskModal = () => {
     setEditingTask(null);
@@ -30,8 +34,28 @@ export default function App() {
       <Sidebar onNewTask={openNewTaskModal} taskCount={taskCount} goalCount={goalCount} />
       <main className="app-content">
         <Routes>
-          <Route path="/" element={<TasksPage tasks={tasks} onEditTask={openEditTaskModal} />} />
-          <Route path="/tasks" element={<TasksPage tasks={tasks} onEditTask={openEditTaskModal} />} />
+          <Route
+            path="/"
+            element={
+              <TasksPage
+                tasks={tasks}
+                onEditTask={openEditTaskModal}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+              />
+            }
+          />
+          <Route
+            path="/tasks"
+            element={
+              <TasksPage
+                tasks={tasks}
+                onEditTask={openEditTaskModal}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={setSelectedTaskId}
+              />
+            }
+          />
           <Route path="/characters" element={<CharactersPage />} />
           <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
