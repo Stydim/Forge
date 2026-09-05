@@ -9,6 +9,7 @@ export default function CharactersPage() {
       <h1 className="page-heading">Кто будет напоминать</h1>
       <p className="characters-subtitle">
         У каждого персонажа семь ступеней эскалации — тон меняется с каждым отложенным напоминанием.
+        Фразы каждый раз сочиняются заново под характер персонажа; ниже — примерный диапазон тона.
       </p>
 
       <div className="characters-grid">
@@ -22,6 +23,13 @@ export default function CharactersPage() {
               </div>
               {c.id === DEFAULT_CHARACTER_ID && <span className="character-active-badge">Активен</span>}
             </div>
+
+            {(c.power || c.helps) && (
+              <div className="character-details">
+                {c.power && <div><strong>Сила:</strong> {c.power}</div>}
+                {c.helps && <div><strong>Помогает:</strong> {c.helps}</div>}
+              </div>
+            )}
 
             <div className="character-stages">
               {c.stages.map((lines, i) => (

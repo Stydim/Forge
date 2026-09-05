@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/TaskCard';
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
 import { useStats } from '../hooks/useStats';
 import { getCharacter, getCharacterState, DEFAULT_CHARACTER_ID } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
+import { parseTaskText, fetchGnomeLines } from '../lib/api';
 
 const character = getCharacter(DEFAULT_CHARACTER_ID);
 
@@ -79,7 +80,33 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
     return snoozed.sort((a, b) => b.snooze_count - a.snooze_count)[0] ?? null;
   }, [displayTasks]);
 
-  const { stage, lines } = getCharacterState(character, focusTask);
+  const { stage, lines: fallbackLines } = getCharacterState(character, focusTask);
+  const [aiLines, setAiLines] = useState(null);
+  const gnomeKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (!focusTask) {
+      gnomeKeyRef.current = null;
+      setAiLines(null);
+      return;
+    }
+    const key = `${focusTask.id}:${stage}`;
+    if (gnomeKeyRef.current === key) return;
+    gnomeKeyRef.current = key;
+    setAiLines(null);
+    fetchGnomeLines({
+      characterName: character.name,
+      characterPower: character.power,
+      characterHelps: character.helps,
+      stage,
+      taskTitle: focusTask.title,
+      snoozeCount: focusTask.snooze_count,
+    }).then((result) => {
+      if (result && gnomeKeyRef.current === key) setAiLines(result);
+    });
+  }, [focusTask, stage]);
+
+  const lines = aiLines ?? fallbackLines;
   const snoozeEcho = focusTask?.snooze_count
     ? `Отложено ${focusTask.snooze_count} ${pluralRu(focusTask.snooze_count, 'раз', 'раза', 'раз')}`
     : null;
@@ -88,10 +115,21 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
   const handleDone = (id) => { completeTask(id); reloadStats(); };
   const handleSnooze = (id) => { snoozeTask(id); reloadStats(); };
 
-  const handleAddSubmit = (e) => {
+  const [parsing, setParsing] = useState(false);
+
+  const handleAddSubmit = async (e) => {
     e.preventDefault();
-    addTask({ title: draft });
+    const text = draft.trim();
+    if (!text) return;
     setDraft('');
+    setParsing(true);
+    const parsed = await parseTaskText(text);
+    setParsing(false);
+    if (parsed) {
+      addTask({ title: parsed.title, due_at: parsed.due_at, dueHasTime: parsed.due_has_time });
+    } else {
+      addTask({ title: text });
+    }
   };
 
   return (
@@ -149,12 +187,13 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
         </div>
 
         <form className="task-add-row" onSubmit={handleAddSubmit}>
-          <span>+</span>
+          <span>{parsing ? '…' : '+'}</span>
           <input
             className="task-add-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Вставь сообщение, письмо или голосовое — AI разберёт срок сам"
+            placeholder={parsing ? 'AI разбирает срок…' : 'Вставь сообщение, письмо или голосовое — AI разберёт срок сам'}
+            disabled={parsing}
           />
         </form>
 
