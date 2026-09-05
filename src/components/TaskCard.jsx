@@ -72,7 +72,7 @@ export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit,
   );
 }
 
-export function ProgressTaskCard({ task, onSubtaskClick, onSelect, selected }) {
+export function ProgressTaskCard({ task, onSubtaskClick, onEdit, onSelect, selected }) {
   return (
     <div className={`task-card${selected ? ' selected' : ''}`} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
@@ -80,7 +80,10 @@ export function ProgressTaskCard({ task, onSubtaskClick, onSelect, selected }) {
           <div className="task-card-title">{task.title}</div>
           <div className="task-card-meta">{task.meta}</div>
         </div>
-        <div className="task-card-progress-badge">{task.progress}%</div>
+        <div className="task-card-actions">
+          <div className="task-card-progress-badge">{task.progress}%</div>
+          <EditButton task={task} onEdit={onEdit} />
+        </div>
       </div>
       <div className="task-progress-bar">
         <div className="task-progress-bar-fill" style={{ width: `${task.progress}%` }} />

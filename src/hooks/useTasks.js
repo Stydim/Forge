@@ -158,12 +158,24 @@ export function useTasks() {
 
     // Checking off the last of today's "N раз в день" chips completes the task
     // (and, if it repeats, spawns tomorrow's occurrence with fresh chips).
-    // Goal step chips (kind: 'goal') don't trigger this — goals have no "done" state yet.
+    // Checking off the last goal step marks the goal completed (archived) too —
+    // goals don't recur, so there's no respawn, just a one-way "done".
     if (!done) return;
     const owner = tasks.find((t) => t.subtasks.some((s) => s.id === subtaskId));
-    if (!owner || owner.kind !== 'task') return;
+    if (!owner) return;
     const allDone = owner.subtasks.every((s) => (s.id === subtaskId ? true : s.done));
-    if (allDone) completeAndRespawn(owner);
+    if (!allDone) return;
+
+    if (owner.kind === 'task') {
+      completeAndRespawn(owner);
+    } else {
+      setTasks((prev) => prev.filter((t) => t.id !== owner.id));
+      const { error: completeErr } = await supabase
+        .from('tasks')
+        .update({ completed: true, completed_at: new Date().toISOString() })
+        .eq('id', owner.id);
+      if (completeErr) { setError(completeErr.message); load(); }
+    }
   }, [tasks, load, completeAndRespawn]);
 
   const addTask = useCallback(async ({
@@ -250,7 +262,7 @@ export function useTasks() {
       .single();
     if (err) { setError(err.message); return; }
 
-    const labels = steps.map((s) => s.trim()).filter(Boolean);
+    const labels = steps.map((s) => s.label.trim()).filter(Boolean);
     let subtasks = [];
     if (labels.length) {
       const rows = labels.map((label, i) => ({ task_id: data.id, label, position: i }));
@@ -261,5 +273,44 @@ export function useTasks() {
     setTasks((prev) => [...prev, { ...data, subtasks }]);
   }, []);
 
-  return { tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask, addTask, updateTask, addGoal };
+  // Reconciles a goal's step list against what's already in the DB: existing
+  // steps keep their id (and done state) so progress isn't lost by editing
+  // wording, removed steps are deleted, new ones inserted — then the goal's
+  // subtasks are refetched fresh since three different write ops touched them.
+  const updateGoal = useCallback(async (id, { title, due_at = null, steps = [] }) => {
+    const goal = tasks.find((t) => t.id === id);
+    if (!goal) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    const { error: err } = await supabase.from('tasks').update({ title: trimmed, due_at }).eq('id', id);
+    if (err) { setError(err.message); load(); return; }
+
+    const cleanSteps = steps
+      .map((s, i) => ({ id: s.id, label: s.label.trim(), position: i }))
+      .filter((s) => s.label);
+    const existingIds = new Set(goal.subtasks.map((s) => s.id));
+    const submittedIds = new Set(cleanSteps.filter((s) => s.id).map((s) => s.id));
+    const toDelete = [...existingIds].filter((sid) => !submittedIds.has(sid));
+    const toUpdate = cleanSteps.filter((s) => s.id && existingIds.has(s.id));
+    const toInsert = cleanSteps.filter((s) => !s.id);
+
+    await Promise.all([
+      toDelete.length ? supabase.from('subtasks').delete().in('id', toDelete) : null,
+      ...toUpdate.map((s) => supabase.from('subtasks').update({ label: s.label, position: s.position }).eq('id', s.id)),
+      toInsert.length
+        ? supabase.from('subtasks').insert(toInsert.map((s) => ({ task_id: id, label: s.label, position: s.position })))
+        : null,
+    ].filter(Boolean));
+
+    const { data: freshSubtasks } = await supabase.from('subtasks').select('*').eq('task_id', id).order('position');
+    setTasks((prev) => prev.map((t) => (
+      t.id === id ? { ...t, title: trimmed, due_at, subtasks: freshSubtasks ?? [] } : t
+    )));
+  }, [tasks, load]);
+
+  return {
+    tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask,
+    addTask, updateTask, addGoal, updateGoal,
+  };
 }

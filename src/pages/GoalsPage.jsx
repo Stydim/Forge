@@ -19,13 +19,24 @@ function deriveGoal(task) {
 }
 
 export default function GoalsPage({ tasks: tasksState }) {
-  const { tasks, loading, error, toggleSubtask, addGoal } = tasksState;
+  const { tasks, loading, error, toggleSubtask, addGoal, updateGoal } = tasksState;
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(null);
 
   const goals = useMemo(
     () => tasks.filter((t) => t.kind === 'goal').map(deriveGoal),
     [tasks],
   );
+
+  const openNewGoalModal = () => {
+    setEditingGoal(null);
+    setModalOpen(true);
+  };
+
+  const openEditGoalModal = (goal) => {
+    setEditingGoal(goal);
+    setModalOpen(true);
+  };
 
   return (
     <div className="goals-page">
@@ -34,7 +45,7 @@ export default function GoalsPage({ tasks: tasksState }) {
           <div className="page-date">ЦЕЛИ</div>
           <h1 className="page-heading">Куда двигаешься</h1>
         </div>
-        <button className="goals-new-btn" onClick={() => setModalOpen(true)}>+ Новая цель</button>
+        <button className="goals-new-btn" onClick={openNewGoalModal}>+ Новая цель</button>
       </div>
 
       {error && (
@@ -49,11 +60,22 @@ export default function GoalsPage({ tasks: tasksState }) {
 
       <div className="task-list">
         {goals.map((goal) => (
-          <ProgressTaskCard key={goal.id} task={goal} onSubtaskClick={toggleSubtask} />
+          <ProgressTaskCard
+            key={goal.id}
+            task={goal}
+            onSubtaskClick={toggleSubtask}
+            onEdit={openEditGoalModal}
+          />
         ))}
       </div>
 
-      <GoalFormModal open={modalOpen} onClose={() => setModalOpen(false)} onCreate={addGoal} />
+      <GoalFormModal
+        open={modalOpen}
+        editingGoal={editingGoal}
+        onClose={() => setModalOpen(false)}
+        onCreate={addGoal}
+        onUpdate={updateGoal}
+      />
     </div>
   );
 }

@@ -8,38 +8,50 @@ function toDateValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function GoalFormModal({ open, onClose, onCreate }) {
+export default function GoalFormModal({ open, editingGoal, onClose, onCreate, onUpdate }) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [steps, setSteps] = useState(['']);
+  const [steps, setSteps] = useState([{ id: null, label: '' }]);
 
   useEffect(() => {
     if (!open) return;
-    setTitle('');
-    setDueDate('');
-    setSteps(['']);
-  }, [open]);
+    if (editingGoal) {
+      setTitle(editingGoal.title);
+      setDueDate(toDateValue(editingGoal.due_at));
+      setSteps(
+        editingGoal.subtasks.length
+          ? editingGoal.subtasks.map((s) => ({ id: s.id, label: s.label }))
+          : [{ id: null, label: '' }],
+      );
+    } else {
+      setTitle('');
+      setDueDate('');
+      setSteps([{ id: null, label: '' }]);
+    }
+  }, [open, editingGoal]);
 
   if (!open) return null;
 
   const updateStep = (i, value) => {
-    setSteps((prev) => prev.map((s, idx) => (idx === i ? value : s)));
+    setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, label: value } : s)));
   };
 
   const removeStep = (i) => {
     setSteps((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   };
 
-  const addStep = () => setSteps((prev) => [...prev, '']);
+  const addStep = () => setSteps((prev) => [...prev, { id: null, label: '' }]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onCreate({
+    const payload = {
       title: title.trim(),
       due_at: dueDate ? new Date(`${dueDate}T00:00`).toISOString() : null,
       steps,
-    });
+    };
+    if (editingGoal) onUpdate(editingGoal.id, payload);
+    else onCreate(payload);
     onClose();
   };
 
@@ -48,8 +60,10 @@ export default function GoalFormModal({ open, onClose, onCreate }) {
       <div className="task-modal" onClick={(e) => e.stopPropagation()}>
         <button className="task-modal-close" onClick={onClose} aria-label="Закрыть">×</button>
 
-        <h2 className="task-modal-title">Новая цель</h2>
-        <p className="task-modal-subtitle">Опиши цель, срок и шаги к ней — по желанию</p>
+        <h2 className="task-modal-title">{editingGoal ? 'Изменить цель' : 'Новая цель'}</h2>
+        <p className="task-modal-subtitle">
+          {editingGoal ? 'Поправь текст, срок или шаги' : 'Опиши цель, срок и шаги к ней — по желанию'}
+        </p>
 
         <form onSubmit={handleSubmit}>
           <label className="task-modal-label" htmlFor="goal-modal-title-input">Текст цели</label>
@@ -78,7 +92,7 @@ export default function GoalFormModal({ open, onClose, onCreate }) {
               <div key={i} className="goal-step-row">
                 <input
                   className="task-modal-input goal-step-input"
-                  value={step}
+                  value={step.label}
                   onChange={(e) => updateStep(i, e.target.value)}
                   placeholder={`Шаг ${i + 1}`}
                 />
