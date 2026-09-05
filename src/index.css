@@ -1106,6 +1106,120 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   background: #C94F3F;
 }
 
+.goal-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.goal-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-step-input {
+  margin-bottom: 0 !important;
+}
+
+.goal-add-step-btn {
+  color: var(--accent-teal-dark);
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 8px 0;
+  margin-bottom: 20px;
+}
+
+.goal-add-step-btn:hover {
+  color: var(--accent-teal);
+}
+
+/* ---------- Goals page ---------- */
+.goals-page {
+  padding: 32px;
+  max-width: 760px;
+}
+
+.goals-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.goals-new-btn {
+  flex-shrink: 0;
+  padding: 11px 20px;
+  background: var(--accent-teal);
+  color: var(--text-inverse);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.goals-new-btn:hover {
+  background: var(--accent-teal-dark);
+}
+
+/* ---------- Progress page ---------- */
+.progress-page {
+  padding: 32px;
+  max-width: 860px;
+}
+
+.progress-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.progress-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.progress-panel-title {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.progress-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 90px;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  background: var(--accent-teal-bg);
+  border-radius: 3px 3px 1px 1px;
+  min-height: 3px;
+}
+
+.progress-bar.high {
+  background: var(--accent-teal);
+}
+
+.progress-chart-caption {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* ---------- Archive page ---------- */
 .archive-page {
   padding: 32px;

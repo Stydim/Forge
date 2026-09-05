@@ -240,5 +240,26 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...dbFields, subtasks } : t)));
   }, [tasks, load]);
 
-  return { tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask, addTask, updateTask };
+  const addGoal = useCallback(async ({ title, due_at = null, steps = [] }) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const { data, error: err } = await supabase
+      .from('tasks')
+      .insert({ kind: 'goal', title: trimmed, due_at })
+      .select('*, subtasks(*)')
+      .single();
+    if (err) { setError(err.message); return; }
+
+    const labels = steps.map((s) => s.trim()).filter(Boolean);
+    let subtasks = [];
+    if (labels.length) {
+      const rows = labels.map((label, i) => ({ task_id: data.id, label, position: i }));
+      const { data: subData, error: subErr } = await supabase.from('subtasks').insert(rows).select('*');
+      if (subErr) console.warn('goal steps creation failed:', subErr.message);
+      else subtasks = subData.sort((a, b) => a.position - b.position);
+    }
+    setTasks((prev) => [...prev, { ...data, subtasks }]);
+  }, []);
+
+  return { tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask, addTask, updateTask, addGoal };
 }

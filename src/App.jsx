@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TasksPage from './pages/TasksPage';
+import GoalsPage from './pages/GoalsPage';
+import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
 import TaskFormModal from './components/TaskFormModal';
@@ -71,6 +73,8 @@ export default function App() {
               />
             }
           />
+          <Route path="/goals" element={<GoalsPage tasks={tasks} />} />
+          <Route path="/progress" element={<ProgressPage />} />
           <Route path="/characters" element={<CharactersPage />} />
           <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
