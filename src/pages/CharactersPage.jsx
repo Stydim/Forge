@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CHARACTERS, COMING_SOON_CHARACTERS, DEFAULT_CHARACTER_ID } from '../lib/characters';
+import { CHARACTERS, COMING_SOON_CHARACTERS } from '../lib/characters';
 
 function CharacterAvatar({ character }) {
   const [failed, setFailed] = useState(false);
@@ -14,7 +14,7 @@ function CharacterAvatar({ character }) {
   );
 }
 
-export default function CharactersPage() {
+export default function CharactersPage({ activeCharacterId, onSelectCharacter }) {
   return (
     <div className="characters-page">
       <div className="page-date">ПЕРСОНАЖИ</div>
@@ -25,25 +25,34 @@ export default function CharactersPage() {
       </p>
 
       <div className="characters-grid">
-        {CHARACTERS.map((c) => (
-          <div key={c.id} className="character-card">
-            <div className="character-card-head">
-              <CharacterAvatar character={c} />
-              <div>
-                <div className="character-name">{c.name}</div>
-                <div className="character-tagline">{c.tagline}</div>
+        {CHARACTERS.map((c) => {
+          const isActive = c.id === activeCharacterId;
+          return (
+            <div key={c.id} className="character-card">
+              <div className="character-card-head">
+                <CharacterAvatar character={c} />
+                <div>
+                  <div className="character-name">{c.name}</div>
+                  <div className="character-tagline">{c.tagline}</div>
+                </div>
+                {isActive ? (
+                  <span className="character-active-badge">Активен</span>
+                ) : (
+                  <button className="btn-pill btn-pill-outline-teal character-select-btn" onClick={() => onSelectCharacter(c.id)}>
+                    Выбрать
+                  </button>
+                )}
               </div>
-              {c.id === DEFAULT_CHARACTER_ID && <span className="character-active-badge">Активен</span>}
-            </div>
 
-            {(c.power || c.helps) && (
-              <div className="character-details">
-                {c.power && <div><strong>Сила:</strong> {c.power}</div>}
-                {c.helps && <div><strong>Помогает:</strong> {c.helps}</div>}
-              </div>
-            )}
-          </div>
-        ))}
+              {(c.power || c.helps) && (
+                <div className="character-details">
+                  {c.power && <div><strong>Сила:</strong> {c.power}</div>}
+                  {c.helps && <div><strong>Помогает:</strong> {c.helps}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {COMING_SOON_CHARACTERS.map((c) => (
           <div key={c.id} className="character-card soon">

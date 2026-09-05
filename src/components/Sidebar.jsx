@@ -1,9 +1,8 @@
 import { NavLink, Link } from 'react-router-dom';
-import { getCharacter, DEFAULT_CHARACTER_ID } from '../lib/characters';
+import { getCharacter } from '../lib/characters';
 
-const character = getCharacter(DEFAULT_CHARACTER_ID);
-
-export default function Sidebar({ onNewTask, taskCount, goalCount }) {
+export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharacterId }) {
+  const character = getCharacter(activeCharacterId);
   const navItems = [
     { to: '/tasks', label: 'Задачи', count: taskCount },
     { to: '/goals', label: 'Цели', count: goalCount },

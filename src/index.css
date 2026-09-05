@@ -826,6 +826,11 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   color: var(--text-tertiary);
 }
 
+.character-select-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .character-details {
   margin-top: 16px;
   padding: 14px 16px;

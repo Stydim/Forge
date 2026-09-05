@@ -23,11 +23,13 @@ function saveToStorage(map) {
 
 const cache = loadFromStorage();
 
-export function getDialogue(taskId) {
-  return cache.get(taskId);
+// Keyed by character too — switching the active character must not show a
+// cached line generated in the previous character's voice.
+export function getDialogue(characterId, taskId) {
+  return cache.get(`${characterId}:${taskId}`);
 }
 
-export function setDialogue(taskId, stage, lines) {
-  cache.set(taskId, { stage, lines });
+export function setDialogue(characterId, taskId, stage, lines) {
+  cache.set(`${characterId}:${taskId}`, { stage, lines });
   saveToStorage(cache);
 }

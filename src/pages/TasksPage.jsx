@@ -3,12 +3,10 @@ import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
 import { useStats } from '../hooks/useStats';
-import { getCharacter, getCharacterState, DEFAULT_CHARACTER_ID } from '../lib/characters';
+import { getCharacter, getCharacterState } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
 import { parseTaskText, fetchGnomeLines } from '../lib/api';
 import { getDialogue, setDialogue } from '../lib/dialogueCache';
-
-const character = getCharacter(DEFAULT_CHARACTER_ID);
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -55,9 +53,10 @@ function deriveDisplay(task) {
   };
 }
 
-export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask }) {
+export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask, activeCharacterId }) {
   const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
+  const character = getCharacter(activeCharacterId);
   const [lang, setLang] = useState('ru');
   const [draft, setDraft] = useState('');
 
@@ -104,8 +103,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       return;
     }
 
-    const key = `${activeTask.id}:${stage}`;
-    const cached = getDialogue(activeTask.id);
+    const key = `${character.id}:${activeTask.id}:${stage}`;
+    const cached = getDialogue(character.id, activeTask.id);
     if (cached && cached.stage === stage) {
       requestKeyRef.current = key;
       setAiLines(cached.lines);
@@ -131,13 +130,13 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     }).then((result) => {
       if (requestKeyRef.current !== key) return; // a newer request superseded this one
       if (result) {
-        setDialogue(activeTask.id, stage, result);
+        setDialogue(character.id, activeTask.id, stage, result);
         setAiLines(result);
       } else {
         setAiFailed(true);
       }
     });
-  }, [activeTask, stage]);
+  }, [activeTask, stage, character]);
 
   const linesLoading = activeTask && !aiLines && !aiFailed;
   const lines = aiLines ?? (aiFailed ? fallbackLines : []);

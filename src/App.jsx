@@ -8,6 +8,7 @@ import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
+import { useActiveCharacter } from './hooks/useActiveCharacter';
 
 const SELECTED_TASK_KEY = 'forge:selected-task-id';
 
@@ -15,6 +16,7 @@ export default function App() {
   const tasks = useTasks();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
   // Lives here (not inside TasksPage) so it survives TasksPage remounting —
   // e.g. the sidebar's Цели/Прогресс links currently redirect back to
   // Tasks since those pages don't exist yet. Persisted to localStorage too,
@@ -48,7 +50,12 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar onNewTask={openNewTaskModal} taskCount={taskCount} goalCount={goalCount} />
+      <Sidebar
+        onNewTask={openNewTaskModal}
+        taskCount={taskCount}
+        goalCount={goalCount}
+        activeCharacterId={activeCharacterId}
+      />
       <main className="app-content">
         <Routes>
           <Route
@@ -59,6 +66,7 @@ export default function App() {
                 onEditTask={openEditTaskModal}
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
+                activeCharacterId={activeCharacterId}
               />
             }
           />
@@ -70,12 +78,21 @@ export default function App() {
                 onEditTask={openEditTaskModal}
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
+                activeCharacterId={activeCharacterId}
               />
             }
           />
           <Route path="/goals" element={<GoalsPage tasks={tasks} />} />
           <Route path="/progress" element={<ProgressPage />} />
-          <Route path="/characters" element={<CharactersPage />} />
+          <Route
+            path="/characters"
+            element={
+              <CharactersPage
+                activeCharacterId={activeCharacterId}
+                onSelectCharacter={setActiveCharacterId}
+              />
+            }
+          />
           <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

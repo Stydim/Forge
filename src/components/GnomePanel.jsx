@@ -9,7 +9,7 @@ export default function GnomePanel({ character, activeTaskTitle, stage, lines, l
         <div className="gnome-panel-title-row">
           <img className="gnome-panel-avatar" src={character.avatar} alt={character.name} />
           <div>
-            <div className="gnome-panel-title">Диалог с гномом</div>
+            <div className="gnome-panel-title">Диалог с персонажем</div>
             {activeTaskTitle && <div className="gnome-panel-subtitle">{activeTaskTitle}</div>}
           </div>
         </div>
