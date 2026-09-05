@@ -793,6 +793,21 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   font-size: 3rem;
 }
 
+.character-avatar-video-wrap {
+  position: relative;
+}
+
+/* Crops to the same face+bust framing as the still portrait — the source
+   video is the full reference card, not a pre-cropped avatar. */
+.character-avatar-video {
+  position: absolute;
+  top: -4.66%;
+  left: -34.73%;
+  width: 328.3%;
+  height: 328.3%;
+  object-fit: cover;
+}
+
 .character-name {
   font-weight: 800;
   font-size: 1.0625rem;

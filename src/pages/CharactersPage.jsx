@@ -4,6 +4,22 @@ import { CHARACTERS, COMING_SOON_CHARACTERS } from '../lib/characters';
 function CharacterAvatar({ character }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="character-avatar missing">{character.name[0]}</div>;
+  if (character.video) {
+    return (
+      <div className="character-avatar character-avatar-video-wrap">
+        <video
+          className="character-avatar-video"
+          src={character.video}
+          poster={character.avatar}
+          autoPlay
+          loop
+          muted
+          playsInline
+          onError={() => setFailed(true)}
+        />
+      </div>
+    );
+  }
   return (
     <img
       className="character-avatar"
