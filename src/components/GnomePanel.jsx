@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-export default function GnomePanel({ character, activeTaskTitle, stage, lines, snoozeEcho, hourBuckets, caption }) {
+export default function GnomePanel({ character, activeTaskTitle, stage, lines, linesLoading, snoozeEcho, hourBuckets, caption }) {
   const maxVal = Math.max(1, ...(hourBuckets ?? []));
 
   return (
@@ -17,11 +17,19 @@ export default function GnomePanel({ character, activeTaskTitle, stage, lines, s
       </div>
 
       <div className="gnome-chat">
-        {lines.map((text, i) => (
-          <div key={i} className="gnome-bubble">
-            {text}
+        {linesLoading ? (
+          <div className="gnome-bubble loading">
+            <span className="gnome-typing-dot" />
+            <span className="gnome-typing-dot" />
+            <span className="gnome-typing-dot" />
           </div>
-        ))}
+        ) : (
+          lines.map((text, i) => (
+            <div key={i} className="gnome-bubble">
+              {text}
+            </div>
+          ))
+        )}
         {snoozeEcho && <div className="gnome-bubble user">{snoozeEcho}</div>}
       </div>
 

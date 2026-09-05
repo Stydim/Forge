@@ -93,18 +93,25 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
 
   const { stage, lines: fallbackLines } = getCharacterState(character, activeTask);
   const [aiLines, setAiLines] = useState(null);
+  const [aiFailed, setAiFailed] = useState(false);
   const gnomeKeyRef = useRef(null);
 
   useEffect(() => {
     if (!activeTask) {
       gnomeKeyRef.current = null;
       setAiLines(null);
+      setAiFailed(false);
       return;
     }
     const key = `${activeTask.id}:${stage}`;
     if (gnomeKeyRef.current === key) return;
     gnomeKeyRef.current = key;
+    // Don't fall back to the static phrase here — that's what caused the
+    // "old pinned phrase flashes, then the real one replaces it" flicker.
+    // Show a loading state instead, and only use the static lines if the AI
+    // call genuinely fails.
     setAiLines(null);
+    setAiFailed(false);
     fetchGnomeLines({
       characterName: character.name,
       characterPower: character.power,
@@ -113,11 +120,14 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
       taskTitle: activeTask.title,
       snoozeCount: activeTask.snooze_count,
     }).then((result) => {
-      if (result && gnomeKeyRef.current === key) setAiLines(result);
+      if (gnomeKeyRef.current !== key) return; // a newer request superseded this one
+      if (result) setAiLines(result);
+      else setAiFailed(true);
     });
   }, [activeTask, stage]);
 
-  const lines = aiLines ?? fallbackLines;
+  const linesLoading = activeTask && !aiLines && !aiFailed;
+  const lines = aiLines ?? (aiFailed ? fallbackLines : []);
   const snoozeEcho = activeTask?.snooze_count
     ? `Отложено ${activeTask.snooze_count} ${pluralRu(activeTask.snooze_count, 'раз', 'раза', 'раз')}`
     : null;
@@ -232,6 +242,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask }) {
         activeTaskTitle={activeTask?.title}
         stage={stage}
         lines={lines}
+        linesLoading={linesLoading}
         snoozeEcho={snoozeEcho}
         hourBuckets={stats?.hourBuckets}
         caption={caption}

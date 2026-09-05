@@ -3,7 +3,7 @@ export const CHARACTERS = [
     id: 'gnome',
     name: 'Ворчливый гном',
     avatar: '/characters/gnome.jpg',
-    tagline: 'Эскалирует от вежливых напоминаний до тяжёлых вздохов за 7 ступеней.',
+    tagline: 'Эскалирует от вежливых напоминаний до тяжёлых вздохов — и чем дольше тянешь, тем жёстче.',
     power: 'Показывает не то, кем ты хочешь казаться, а где ты реально сейчас — без стыда и без прикрас.',
     helps: 'Тем, кто врёт себе про спорт, работу, отношения. Честная точка А — единственное место, откуда начинается рост.',
     stages: [
@@ -52,9 +52,14 @@ export function getCharacter(id) {
   return CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 }
 
+// Stage is uncapped — it just tracks snoozes+1, however high that goes. The
+// static `stages` array only has entries up to 7; past that we clamp ONLY the
+// array lookup (used as a last-resort fallback if the AI call fails), never
+// the real stage number shown to the user or sent to the AI as escalation level.
 export function getCharacterState(character, focusTask) {
   if (!focusTask) return { stage: null, lines: character.calmLines };
-  const stage = Math.min(character.stages.length, Math.max(1, focusTask.snooze_count + 1));
-  const lines = character.stages[stage - 1].map((l) => l.replaceAll('{title}', focusTask.title));
+  const stage = Math.max(1, focusTask.snooze_count + 1);
+  const fallbackIndex = Math.min(character.stages.length, stage) - 1;
+  const lines = character.stages[fallbackIndex].map((l) => l.replaceAll('{title}', focusTask.title));
   return { stage, lines };
 }
