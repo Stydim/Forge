@@ -3,6 +3,7 @@ export const CHARACTERS = [
     id: 'gnome',
     name: 'Ворчливый гном',
     avatar: '/characters/gnome.jpg',
+    video: '/characters/gnome.mp4',
     tagline: 'Эскалирует от вежливых напоминаний до тяжёлых вздохов — и чем дольше тянешь, тем жёстче.',
     power: 'Показывает не то, кем ты хочешь казаться, а где ты реально сейчас — без стыда и без прикрас.',
     helps: 'Тем, кто врёт себе про спорт, работу, отношения. Честная точка А — единственное место, откуда начинается рост.',
@@ -43,6 +44,11 @@ export const CHARACTERS = [
     name: 'Сердцевед',
     avatar: '/characters/heartkeeper.jpg',
     video: '/characters/heartkeeper.mp4',
+    // The gnome's video is already a tight bust crop like his still photo, so
+    // it needs no adjustment. This one's source is the full reference card —
+    // same fractional crop window used for the still portrait (see the crop
+    // script in the session that produced heartkeeper.jpg).
+    videoCrop: { top: -4.66, left: -34.73, size: 328.3 },
     tagline: 'Называет чувство настоящим именем и показывает, что с ним делать — не подавить и не раздуть.',
     power: 'Называет чувство настоящим именем и показывает, что с ним делать (не подавить и не раздуть).',
     helps: 'Когда злость, вина или тревога рулят решениями. Эмоция перестаёт быть хозяином.',

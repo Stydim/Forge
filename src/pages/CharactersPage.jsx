@@ -1,32 +1,56 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CHARACTERS, COMING_SOON_CHARACTERS } from '../lib/characters';
 
+// Plain photo by default; hovering plays the character's living-portrait
+// video (if it has one), looping until the cursor leaves, then it's back
+// to the static photo — never autoplaying unattended.
 function CharacterAvatar({ character }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="character-avatar missing">{character.name[0]}</div>;
-  if (character.video) {
+  const [hovering, setHovering] = useState(false);
+  const videoRef = useRef(null);
+
+  if (failed || !character.video) {
     return (
-      <div className="character-avatar character-avatar-video-wrap">
-        <video
-          className="character-avatar-video"
-          src={character.video}
-          poster={character.avatar}
-          autoPlay
-          loop
-          muted
-          playsInline
-          onError={() => setFailed(true)}
-        />
-      </div>
+      <img
+        className="character-avatar"
+        src={character.avatar}
+        alt={character.name}
+        onError={() => setFailed(true)}
+      />
     );
   }
+
+  const crop = character.videoCrop;
+  const videoStyle = crop
+    ? { top: `${crop.top}%`, left: `${crop.left}%`, width: `${crop.size}%`, height: `${crop.size}%` }
+    : { top: 0, left: 0, width: '100%', height: '100%' };
+
   return (
-    <img
-      className="character-avatar"
-      src={character.avatar}
-      alt={character.name}
-      onError={() => setFailed(true)}
-    />
+    <div
+      className="character-avatar character-avatar-media-wrap"
+      onMouseEnter={() => {
+        setHovering(true);
+        videoRef.current?.play();
+      }}
+      onMouseLeave={() => {
+        setHovering(false);
+        const v = videoRef.current;
+        if (v) { v.pause(); v.currentTime = 0; }
+      }}
+    >
+      <img className="character-avatar-media" src={character.avatar} alt={character.name} style={{ opacity: hovering ? 0 : 1 }} />
+      <video
+        ref={videoRef}
+        className="character-avatar-media"
+        style={{ ...videoStyle, opacity: hovering ? 1 : 0 }}
+        src={character.video}
+        loop
+        muted
+        playsInline
+        preload="none"
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }
 
