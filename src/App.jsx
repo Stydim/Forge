@@ -55,7 +55,7 @@ export default function App() {
 
   return (
     <div
-      className={`app-layout${background?.dark ? ' bg-dark' : ''}`}
+      className={`app-layout${background ? ` has-bg bg-${background.id}` : ''}${background?.dark ? ' bg-dark' : ''}`}
       style={background ? {
         // Lives on the outer layout (not just app-content) so the same photo
         // shows through the sidebar too — both panels render it transparent

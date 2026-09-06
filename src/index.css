@@ -528,9 +528,37 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 }
 
 /* Elements with no opaque card behind them sit directly on the chosen
-   background photo, so on a dark one they need light text instead of the
-   app's normal dark-on-cream (which would nearly disappear). Applies only
-   when .bg-dark is set on .app-layout — see backgrounds.js's `dark` flag. */
+   background photo. The app's normal colors here (--text-tertiary etc.) are
+   calibrated for the plain cream page and are too pale to hold up against
+   ANY photo's texture, so .has-bg (any photo active) bumps them to a strong
+   near-black first; .bg-dark (a photo dark enough to need it — see
+   backgrounds.js's `dark` flag) then overrides that to near-white instead. */
+.has-bg .task-add-row {
+  border-color: rgba(38, 35, 28, 0.4);
+  color: var(--text-primary);
+}
+
+.has-bg .task-add-row:hover,
+.has-bg .task-add-row:focus-within {
+  border-color: var(--accent-teal);
+  color: var(--accent-teal-dark);
+  background: var(--accent-teal-bg);
+}
+
+.has-bg .task-add-input,
+.has-bg .task-add-input::placeholder {
+  color: var(--text-primary);
+}
+
+.has-bg .sidebar-logo-text,
+.has-bg .sidebar-link:not(.active) {
+  color: var(--text-primary);
+}
+
+.has-bg .sidebar-link:not(.active) .sidebar-link-count {
+  color: var(--text-secondary);
+}
+
 .bg-dark .task-add-row {
   border-color: rgba(255, 255, 255, 0.35);
   color: rgba(255, 255, 255, 0.75);
@@ -543,12 +571,9 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   background: rgba(255, 255, 255, 0.1);
 }
 
-.bg-dark .task-add-input {
-  color: #fff;
-}
-
+.bg-dark .task-add-input,
 .bg-dark .task-add-input::placeholder {
-  color: rgba(255, 255, 255, 0.75);
+  color: #fff;
 }
 
 .bg-dark .sidebar-logo-text,
@@ -570,7 +595,27 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 }
 
 /* .sidebar-link.active and .sidebar-companion keep their own opaque card
-   background regardless, so they don't need a dark-bg override. */
+   background regardless, so they don't need a background-photo override. */
+
+/* Неон: dark overall (sidebar stays white, per above), but the AI row
+   happens to sit over a brighter streak in this particular photo — needs
+   dark text specifically, unlike every other dark background. */
+.bg-dark.bg-neon-flow .task-add-row {
+  border-color: rgba(38, 35, 28, 0.4);
+  color: var(--text-primary);
+}
+
+.bg-dark.bg-neon-flow .task-add-row:hover,
+.bg-dark.bg-neon-flow .task-add-row:focus-within {
+  border-color: var(--accent-teal);
+  color: var(--accent-teal-dark);
+  background: var(--accent-teal-bg);
+}
+
+.bg-dark.bg-neon-flow .task-add-input,
+.bg-dark.bg-neon-flow .task-add-input::placeholder {
+  color: var(--text-primary);
+}
 
 /* ---------- Stats row ---------- */
 .stats-row {
