@@ -1,6 +1,8 @@
 // Persists each task's last-generated dialogue across full page reloads
 // (in-memory state/refs don't survive those). Keyed by character+task; a new
-// entry only overwrites the old one when the task's stage changes.
+// entry only overwrites the old one when the task's stage OR due-bucket
+// changes (due-bucket catches a task quietly crossing from upcoming to
+// overdue with no snooze action, which wouldn't otherwise bump the stage).
 import { DEFAULT_CHARACTER_ID } from './characters';
 
 const STORAGE_KEY = 'forge:gnome-dialogue-cache';
@@ -38,7 +40,7 @@ export function getDialogue(characterId, taskId) {
   return undefined;
 }
 
-export function setDialogue(characterId, taskId, stage, lines) {
-  cache.set(`${characterId}:${taskId}`, { stage, lines });
+export function setDialogue(characterId, taskId, stage, lines, dueBucket) {
+  cache.set(`${characterId}:${taskId}`, { stage, dueBucket, lines });
   saveToStorage(cache);
 }

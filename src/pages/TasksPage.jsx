@@ -104,9 +104,23 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       return;
     }
 
-    const key = `${character.id}:${activeTask.id}:${stage}`;
+    // Whether the task has actually come due yet — a not-yet-due task
+    // shouldn't get nagged at like it's overdue just because "stage" (driven
+    // only by snooze_count) happens to be 1. Also doubles as part of the
+    // cache key so a task quietly crossing into "overdue" while sitting
+    // untouched (no snooze) still gets a fresh, appropriately-toned line.
+    const dueBucket = !activeTask.due_at
+      ? 'none'
+      : new Date(activeTask.due_at).getTime() < Date.now() ? 'overdue' : 'upcoming';
+    const dueStatus = dueBucket === 'none'
+      ? 'без срока'
+      : dueBucket === 'overdue'
+        ? `просрочено — ${formatOverdue(activeTask.due_at)}`
+        : `срок ещё не наступил — ${formatUpcoming(activeTask.due_at, null, activeTask.due_has_time)}`;
+
+    const key = `${character.id}:${activeTask.id}:${stage}:${dueBucket}`;
     const cached = getDialogue(character.id, activeTask.id);
-    if (cached && cached.stage === stage) {
+    if (cached && cached.stage === stage && cached.dueBucket === dueBucket) {
       requestKeyRef.current = key;
       setAiLines(cached.lines);
       setAiFailed(false);
@@ -128,10 +142,11 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       stage,
       taskTitle: activeTask.title,
       snoozeCount: activeTask.snooze_count,
+      dueStatus,
     }).then((result) => {
       if (requestKeyRef.current !== key) return; // a newer request superseded this one
       if (result) {
-        setDialogue(character.id, activeTask.id, stage, result);
+        setDialogue(character.id, activeTask.id, stage, result, dueBucket);
         setAiLines(result);
       } else {
         setAiFailed(true);

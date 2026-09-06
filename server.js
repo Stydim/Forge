@@ -120,8 +120,10 @@ app.post('/api/parse-task', async (req, res) => {
     else if (repeatEndType === 'count' && !repeatCount) repeatEndType = 'never';
     else if (repeatEndType === 'date' && !repeatEndDate) repeatEndType = 'never';
 
+    const rawTitle = typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : text;
+
     res.json({
-      title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : text,
+      title: rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1),
       due_at: typeof parsed.due_at === 'string' ? parsed.due_at : null,
       due_has_time: parsed.due_has_time !== false,
       repeat_type: repeatType,
@@ -139,8 +141,14 @@ app.post('/api/parse-task', async (req, res) => {
 
 app.post('/api/gnome-message', async (req, res) => {
   try {
-    const { characterName, characterPower, characterHelps, stage, taskTitle, snoozeCount } = req.body || {};
+    const { characterName, characterPower, characterHelps, stage, taskTitle, snoozeCount, dueStatus } = req.body || {};
     if (!taskTitle || !stage) return res.status(400).json({ error: 'taskTitle and stage are required' });
+
+    const dueLine = dueStatus
+      ? `Статус срока задачи: ${dueStatus}.
+Если срок ещё не наступил — задача просто предстоит, она НЕ просрочена и на неё пока не откладывались. НЕ говори, что она просрочена, забыта или что её "опять" не сделали — тон спокойный, дружелюбный, максимум лёгкое ненавязчивое напоминание о том, что задача есть в списке. Ступень эскалации в этом случае всё равно 1 (снооз ещё не было), но говори именно как про предстоящее дело, а не как про долг.
+Если задача уже просрочена — ориентируйся на ступень эскалации как обычно.`
+      : '';
 
     const parsed = await callGrok([
       {
@@ -149,8 +157,9 @@ app.post('/api/gnome-message', async (req, res) => {
 Персонаж: «${characterName}».
 Его суть: ${characterPower || ''} ${characterHelps || ''}
 Пользователь отложил задачу «${taskTitle}» ${snoozeCount ?? 0} раз(а). Это определяет ступень эскалации: ${stage}.
+${dueLine}
 Ступень 1 — максимально мягко и спокойно. Дальше нет потолка: чем выше ступень, тем сильнее нарастает эмоция (усталость, сарказм, чёрный юмор, драматичное отчаяние на очень высоких ступенях) — но всегда без грубости и оскорблений личности.
-Придумай ДВЕ короткие фразы от лица персонажа (каждая до 90 символов) в тоне, точно соответствующем ступени ${stage}. Это должны быть свежие формулировки — не используй шаблонные фразы вроде "энный раз напоминаю", придумывай каждый раз по-новому.
+Придумай ДВЕ короткие фразы от лица персонажа (каждая до 90 символов) в тоне, точно соответствующем ступени ${stage} (и статусу срока выше, если он есть). Это должны быть свежие формулировки — не используй шаблонные фразы вроде "энный раз напоминаю", придумывай каждый раз по-новому.
 Ответь СТРОГО JSON без пояснений и без markdown-разметки: {"lines": [string, string]}.`,
       },
       { role: 'user', content: `Ступень ${stage}, задача «${taskTitle}».` },
