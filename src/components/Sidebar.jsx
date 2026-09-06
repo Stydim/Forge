@@ -37,11 +37,9 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
       <div className="sidebar-spacer" />
 
       <Link to="/characters" className="sidebar-companion">
+        <div className="sidebar-companion-name">{character.name}</div>
         <img className="sidebar-companion-avatar" src={character.avatar} alt={character.name} />
-        <div>
-          <div className="sidebar-companion-name">{character.name}</div>
-          <div className="sidebar-companion-desc">{character.tagline}</div>
-        </div>
+        <div className="sidebar-companion-desc">{character.tagline}</div>
       </Link>
 
       <div className="sidebar-plan">
