@@ -164,14 +164,20 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       const repeatType = parsed.repeat_type || 'none';
       const repeatDays = repeatType === 'custom_days' ? parsed.repeat_days : null;
       const timesPerDay = parsed.times_per_day || 1;
+      const repeatEndType = parsed.repeat_end_type || 'never';
+      const repeatCount = repeatEndType === 'count' ? parsed.repeat_count : null;
+      const repeatEndDate = repeatEndType === 'date' ? parsed.repeat_end_date : null;
       addTask({
         title: parsed.title,
         due_at: parsed.due_at,
         dueHasTime: parsed.due_has_time,
-        recurrence_note: buildRecurrenceNote(repeatType, repeatDays, timesPerDay, 'never', null, null),
+        recurrence_note: buildRecurrenceNote(repeatType, repeatDays, timesPerDay, repeatEndType, repeatCount, repeatEndDate),
         timesPerDay,
         repeatType,
         repeatDays,
+        repeatEndType,
+        repeatCount,
+        repeatEndDate,
       });
     } else {
       addTask({ title: text });

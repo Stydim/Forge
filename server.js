@@ -64,6 +64,7 @@ async function callGrok(messages, { maxTokens = 250 } = {}) {
 }
 
 const REPEAT_TYPES = new Set(['none', 'daily', 'weekly', 'weekdays', 'weekends', 'monthly', 'yearly', 'custom_days']);
+const REPEAT_END_TYPES = new Set(['never', 'count', 'date']);
 const WEEKDAY_TOKENS = new Set(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
 const WEEKDAY_NAMES_RU = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
 
@@ -79,17 +80,25 @@ app.post('/api/parse-task', async (req, res) => {
         content: `Ты превращаешь свободный текст на русском в структурированную задачу для трекера дел.
 Текущая дата и время: ${now.toISOString()} (это ${WEEKDAY_NAMES_RU[now.getDay()]}) — используй как точку отсчёта для относительных сроков ("завтра", "через час", "в пятницу", "в понедельник").
 Ответь СТРОГО JSON без пояснений и без markdown-разметки:
-{"title": string, "due_at": string|null, "due_has_time": boolean, "repeat_type": string, "repeat_days": string[]|null, "times_per_day": number}
+{"title": string, "due_at": string|null, "due_has_time": boolean, "repeat_type": string, "repeat_days": string[]|null, "times_per_day": number, "repeat_end_type": string, "repeat_count": number|null, "repeat_end_date": string|null}
 "title" — короткая суть задачи без упоминаний даты/времени/повтора.
 "due_at" — дата/время первого выполнения в ISO 8601 с таймзоной, если срок упомянут явно или косвенно; иначе null.
 "due_has_time" — true, если было названо конкретное время суток; false, если только дата (или срока нет вовсе).
 "repeat_type" — одно из: "none" (повтора нет), "daily", "weekly" (раз в неделю, в тот же день недели что и due_at), "weekdays" (по будням), "weekends" (по выходным), "monthly", "yearly", "custom_days" (конкретные дни недели).
 Используй "custom_days" всегда, когда упомянуто больше одного дня недели — например "сегодня и во вторник" значит custom_days с обоими днями (сегодняшним и вторником), а не просто "во вторник".
 "repeat_days" — массив из "mon","tue","wed","thu","fri","sat","sun", ТОЛЬКО когда repeat_type="custom_days"; иначе null.
-"times_per_day" — сколько раз в день выполняется (целое число 1-10); если не указано явно — 1.`,
+"times_per_day" — сколько раз в день выполняется (целое число 1-10); если не указано явно — 1.
+"repeat_end_type" — когда серия заканчивается: "count" (после конкретного числа повторов), "date" (до конкретной даты), "never" (повтор постоянный, без конца).
+ВАЖНО: если repeat_type="custom_days" и дни просто перечислены как конкретный список без слов "каждый/каждую/по" (например "сегодня и во вторник", "в среду и в пятницу на этой неделе") — это одноразовый проход по списку, а НЕ постоянный повтор. Тогда "repeat_end_type"="count" и "repeat_count" = количество дней в repeat_days (серия пройдёт по разу каждый день из списка и остановится).
+Если явно сказано "каждый"/"каждую"/"по вторникам и субботам" и т.п. — это постоянный повтор, "repeat_end_type"="never".
+Если названо конкретное число повторов ("3 раза", "5 подходов") — "repeat_end_type"="count", "repeat_count" = это число.
+Если названа дата окончания ("до 10 сентября") — "repeat_end_type"="date", "repeat_end_date" = эта дата в ISO 8601.
+Для daily/weekly/weekdays/weekends/monthly/yearly без явного признака конца — "repeat_end_type"="never".
+"repeat_count" — число или null (только когда repeat_end_type="count").
+"repeat_end_date" — дата в ISO 8601 или null (только когда repeat_end_type="date").`,
       },
       { role: 'user', content: text },
-    ], { maxTokens: 250 });
+    ], { maxTokens: 300 });
 
     const repeatType = REPEAT_TYPES.has(parsed.repeat_type) ? parsed.repeat_type : 'none';
     const repeatDays = repeatType === 'custom_days' && Array.isArray(parsed.repeat_days)
@@ -98,6 +107,18 @@ app.post('/api/parse-task', async (req, res) => {
     const timesPerDay = Number.isInteger(parsed.times_per_day)
       ? Math.min(Math.max(parsed.times_per_day, 1), 10)
       : 1;
+    let repeatEndType = REPEAT_END_TYPES.has(parsed.repeat_end_type) ? parsed.repeat_end_type : 'never';
+    const repeatCount = repeatEndType === 'count' && Number.isInteger(parsed.repeat_count) && parsed.repeat_count > 0
+      ? parsed.repeat_count
+      : null;
+    const repeatEndDate = repeatEndType === 'date' && typeof parsed.repeat_end_date === 'string'
+      ? parsed.repeat_end_date
+      : null;
+    // Fall back to "never" if the type doesn't have the value it needs, or
+    // there's no repeat at all to end.
+    if (repeatType === 'none') repeatEndType = 'never';
+    else if (repeatEndType === 'count' && !repeatCount) repeatEndType = 'never';
+    else if (repeatEndType === 'date' && !repeatEndDate) repeatEndType = 'never';
 
     res.json({
       title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : text,
@@ -106,6 +127,9 @@ app.post('/api/parse-task', async (req, res) => {
       repeat_type: repeatType,
       repeat_days: repeatDays && repeatDays.length ? repeatDays : null,
       times_per_day: timesPerDay,
+      repeat_end_type: repeatEndType,
+      repeat_count: repeatEndType === 'count' ? repeatCount : null,
+      repeat_end_date: repeatEndType === 'date' ? repeatEndDate : null,
     });
   } catch (err) {
     console.error('parse-task failed:', err.message);
