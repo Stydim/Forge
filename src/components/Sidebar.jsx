@@ -15,7 +15,7 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon" />
+        <img className="sidebar-logo-icon" src="/logo.jpg" alt="" />
         <span className="sidebar-logo-text">Forge</span>
       </div>
 
