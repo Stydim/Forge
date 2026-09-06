@@ -7,6 +7,7 @@ import { getCharacter, getCharacterState } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
 import { parseTaskText, fetchGnomeLines } from '../lib/api';
 import { getDialogue, setDialogue } from '../lib/dialogueCache';
+import { buildRecurrenceNote } from '../lib/recurrence';
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -160,7 +161,18 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     const parsed = await parseTaskText(text);
     setParsing(false);
     if (parsed) {
-      addTask({ title: parsed.title, due_at: parsed.due_at, dueHasTime: parsed.due_has_time });
+      const repeatType = parsed.repeat_type || 'none';
+      const repeatDays = repeatType === 'custom_days' ? parsed.repeat_days : null;
+      const timesPerDay = parsed.times_per_day || 1;
+      addTask({
+        title: parsed.title,
+        due_at: parsed.due_at,
+        dueHasTime: parsed.due_has_time,
+        recurrence_note: buildRecurrenceNote(repeatType, repeatDays, timesPerDay, 'never', null, null),
+        timesPerDay,
+        repeatType,
+        repeatDays,
+      });
     } else {
       addTask({ title: text });
     }
