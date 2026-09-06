@@ -76,6 +76,9 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .app-layout {
   display: flex;
   min-height: 100vh;
+  background-color: var(--bg-page);
+  background-size: cover;
+  background-position: center;
 }
 
 .app-content {
@@ -92,7 +95,9 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--bg-sidebar);
+  /* No background-color of its own — the shared page background (plain
+     cream, or the chosen photo) painted on .app-layout shows through here
+     too, so a custom background isn't cut off at the sidebar's edge. */
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;

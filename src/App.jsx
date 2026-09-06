@@ -54,26 +54,27 @@ export default function App() {
   const goalCount = tasks.tasks.filter((t) => t.kind === 'goal').length;
 
   return (
-    <div className="app-layout">
+    <div
+      className="app-layout"
+      style={background ? {
+        // Lives on the outer layout (not just app-content) so the same photo
+        // shows through the sidebar too — both panels render it transparent
+        // and this is what's actually behind them. A light cream scrim keeps
+        // heading text (dark, sized for the plain cream page) readable no
+        // matter how dark the chosen photo is.
+        backgroundImage: `linear-gradient(rgba(251, 247, 238, 0.32), rgba(251, 247, 238, 0.32)), url(${background.url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      } : undefined}
+    >
       <Sidebar
         onNewTask={openNewTaskModal}
         taskCount={taskCount}
         goalCount={goalCount}
         activeCharacterId={activeCharacterId}
       />
-      <main
-        className="app-content"
-        style={background ? {
-          // A cream scrim over the image keeps heading text (dark, sized for
-          // the light page background) readable no matter how dark the
-          // chosen photo is, while still letting it show through as a
-          // muted wallpaper rather than fighting the UI for contrast.
-          backgroundImage: `linear-gradient(rgba(251, 247, 238, 0.72), rgba(251, 247, 238, 0.72)), url(${background.url})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-        } : undefined}
-      >
+      <main className="app-content">
         <Routes>
           <Route
             path="/"
