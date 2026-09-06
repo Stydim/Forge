@@ -6,9 +6,12 @@ import GoalsPage from './pages/GoalsPage';
 import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
+import SettingsPage from './pages/SettingsPage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
 import { useActiveCharacter } from './hooks/useActiveCharacter';
+import { useBackground } from './hooks/useBackground';
+import { getBackground } from './lib/backgrounds';
 
 const SELECTED_TASK_KEY = 'forge:selected-task-id';
 
@@ -17,6 +20,8 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
+  const [backgroundId, setBackgroundId] = useBackground();
+  const background = getBackground(backgroundId);
   // Lives here (not inside TasksPage) so it survives TasksPage remounting —
   // e.g. the sidebar's Цели/Прогресс links currently redirect back to
   // Tasks since those pages don't exist yet. Persisted to localStorage too,
@@ -56,7 +61,19 @@ export default function App() {
         goalCount={goalCount}
         activeCharacterId={activeCharacterId}
       />
-      <main className="app-content">
+      <main
+        className="app-content"
+        style={background ? {
+          // A cream scrim over the image keeps heading text (dark, sized for
+          // the light page background) readable no matter how dark the
+          // chosen photo is, while still letting it show through as a
+          // muted wallpaper rather than fighting the UI for contrast.
+          backgroundImage: `linear-gradient(rgba(251, 247, 238, 0.72), rgba(251, 247, 238, 0.72)), url(${background.url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        } : undefined}
+      >
         <Routes>
           <Route
             path="/"
@@ -94,6 +111,10 @@ export default function App() {
             }
           />
           <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
+          <Route
+            path="/settings"
+            element={<SettingsPage backgroundId={backgroundId} onSelectBackground={setBackgroundId} />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

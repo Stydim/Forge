@@ -1358,6 +1358,75 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   color: var(--text-primary);
 }
 
+/* ---------- Settings ---------- */
+.settings-page {
+  padding: 32px;
+  max-width: 760px;
+}
+
+.bg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.bg-option {
+  position: relative;
+  height: 130px;
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  background-color: var(--bg-chip);
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+}
+
+.bg-option:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+.bg-option.selected {
+  border-color: var(--accent-teal-dark);
+}
+
+.bg-option-none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bg-option-label {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-inverse);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.bg-option-none .bg-option-label {
+  position: static;
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+.bg-option-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--accent-teal-dark);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .tasks-page {
