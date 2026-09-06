@@ -114,9 +114,7 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .sidebar-logo-icon {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  background: var(--accent-teal);
-  object-fit: cover;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
