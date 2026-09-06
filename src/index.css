@@ -527,6 +527,51 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   font-weight: 600;
 }
 
+/* Elements with no opaque card behind them sit directly on the chosen
+   background photo, so on a dark one they need light text instead of the
+   app's normal dark-on-cream (which would nearly disappear). Applies only
+   when .bg-dark is set on .app-layout — see backgrounds.js's `dark` flag. */
+.bg-dark .task-add-row {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.bg-dark .task-add-row:hover,
+.bg-dark .task-add-row:focus-within {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bg-dark .task-add-input {
+  color: #fff;
+}
+
+.bg-dark .task-add-input::placeholder {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.bg-dark .sidebar-logo-text,
+.bg-dark .sidebar-link:not(.active) {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.bg-dark .sidebar-logo-text .brand-light {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.bg-dark .sidebar-link:not(.active):hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.bg-dark .sidebar-link:not(.active) .sidebar-link-count {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* .sidebar-link.active and .sidebar-companion keep their own opaque card
+   background regardless, so they don't need a dark-bg override. */
+
 /* ---------- Stats row ---------- */
 .stats-row {
   display: grid;
