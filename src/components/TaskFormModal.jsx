@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { buildRecurrenceNote } from '../lib/recurrence';
 import { resolveDueAtWithoutTime } from '../lib/dueDate';
 
@@ -43,7 +44,7 @@ const END_OPTIONS = [
   { value: 'date', label: 'До даты' },
 ];
 
-export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editingTask }) {
+export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDelete, editingTask }) {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
@@ -54,9 +55,11 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
   const [endType, setEndType] = useState('never');
   const [endCount, setEndCount] = useState(5);
   const [endDate, setEndDate] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setConfirmingDelete(false);
     if (editingTask) {
       setTitle(editingTask.title);
       setDueDate(toDateValue(editingTask.due_at));
@@ -130,6 +133,11 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
 
     if (editingTask) onUpdate(editingTask.id, payload);
     else onCreate(payload);
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete(editingTask.id);
     onClose();
   };
 
@@ -286,10 +294,36 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
             </button>
           </div>
 
-          <div className="task-modal-actions">
-            <button type="button" className="task-modal-btn cancel" onClick={onClose}>Отмена</button>
-            <button type="submit" className="task-modal-btn save">Сохранить</button>
-          </div>
+          {editingTask && confirmingDelete ? (
+            <div className="task-modal-delete-confirm">
+              <span>Точно удалить задачу?</span>
+              <button type="button" className="task-modal-btn-small" onClick={() => setConfirmingDelete(false)}>
+                Нет
+              </button>
+              <button type="button" className="task-modal-btn-small danger" onClick={handleDelete}>
+                Да, удалить
+              </button>
+            </div>
+          ) : (
+            <div className="task-modal-actions">
+              <div className="task-modal-actions-left">
+                {editingTask && (
+                  <button
+                    type="button"
+                    className="task-modal-delete-btn"
+                    onClick={() => setConfirmingDelete(true)}
+                    aria-label="Удалить задачу"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+              <div className="task-modal-actions-right">
+                <button type="button" className="task-modal-btn cancel" onClick={onClose}>Отмена</button>
+                <button type="submit" className="task-modal-btn save">Сохранить</button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

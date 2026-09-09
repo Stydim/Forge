@@ -1283,7 +1283,73 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 .task-modal-actions {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+
+.task-modal-actions-left {
+  display: flex;
+  align-items: center;
+}
+
+.task-modal-actions-right {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.task-modal-delete-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.task-modal-delete-btn:hover {
+  background: rgba(226, 96, 79, 0.12);
+  color: var(--accent-red);
+}
+
+.task-modal-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.task-modal-delete-confirm > span {
+  flex: 1;
+}
+
+.task-modal-btn-small {
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  background: var(--bg-chip);
+  color: var(--text-primary);
+}
+
+.task-modal-btn-small:hover {
+  background: var(--border-color);
+}
+
+.task-modal-btn-small.danger {
+  background: var(--accent-red);
+  color: var(--text-inverse);
+}
+
+.task-modal-btn-small.danger:hover {
+  background: #C94F3F;
 }
 
 .task-modal-btn {

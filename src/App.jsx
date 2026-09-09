@@ -125,6 +125,7 @@ export default function App() {
         onClose={() => setModalOpen(false)}
         onCreate={tasks.addTask}
         onUpdate={tasks.updateTask}
+        onDelete={tasks.deleteTask}
       />
     </div>
   );

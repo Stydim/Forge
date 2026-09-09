@@ -326,8 +326,15 @@ export function useTasks() {
     )));
   }, [tasks, load]);
 
+  // subtasks/snooze_events cascade-delete at the DB level (on delete cascade).
+  const deleteTask = useCallback(async (id) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    const { error: err } = await supabase.from('tasks').delete().eq('id', id);
+    if (err) { setError(err.message); load(); }
+  }, [load]);
+
   return {
     tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask,
-    addTask, updateTask, addGoal, updateGoal,
+    addTask, updateTask, addGoal, updateGoal, deleteTask,
   };
 }
