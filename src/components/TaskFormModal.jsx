@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { buildRecurrenceNote } from '../lib/recurrence';
+import { resolveDueAtWithoutTime } from '../lib/dueDate';
 
 function toDateValue(iso) {
   if (!iso) return '';
@@ -98,7 +99,21 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, editi
     const repeatCount = repeatEndType === 'count' ? endCount : null;
 
     const dueHasTime = dueDate ? hasTime : true;
-    const due_at = dueDate ? new Date(`${dueDate}T${dueHasTime && dueTime ? dueTime : '00:00'}`).toISOString() : null;
+    // No time given: for a brand-new task (or one whose date actually
+    // changed) today defaults to right now and any future date to 09:00 —
+    // see resolveDueAtWithoutTime. But if we're just re-saving an existing
+    // no-time task on the SAME date, keep its original moment instead of
+    // bumping it forward on every edit.
+    const keepOriginalNoTimeMoment = editingTask
+      && !editingTask.due_has_time
+      && toDateValue(editingTask.due_at) === dueDate;
+    const due_at = !dueDate
+      ? null
+      : dueHasTime && dueTime
+        ? new Date(`${dueDate}T${dueTime}`).toISOString()
+        : keepOriginalNoTimeMoment
+          ? editingTask.due_at
+          : resolveDueAtWithoutTime(dueDate).toISOString();
 
     const payload = {
       title: title.trim(),

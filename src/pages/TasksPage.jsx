@@ -8,6 +8,7 @@ import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, p
 import { parseTaskText, fetchGnomeLines } from '../lib/api';
 import { getDialogue, setDialogue } from '../lib/dialogueCache';
 import { buildRecurrenceNote } from '../lib/recurrence';
+import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
 
 const dateLabel = new Date().toLocaleDateString('ru-RU', {
   weekday: 'long',
@@ -162,7 +163,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   const caption = stats ? describeSnoozePattern(stats.hourBuckets) : null;
 
   const handleDone = (id) => { completeTask(id); reloadStats(); };
-  const handleSnooze = (id) => { onSelectTask(id); snoozeTask(id); reloadStats(); };
+  const handleSnooze = (id, hours) => { onSelectTask(id); snoozeTask(id, hours); reloadStats(); };
   const handleSelect = (id) => onSelectTask(id);
 
   const [parsing, setParsing] = useState(false);
@@ -182,9 +183,17 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       const repeatEndType = parsed.repeat_end_type || 'never';
       const repeatCount = repeatEndType === 'count' ? parsed.repeat_count : null;
       const repeatEndDate = repeatEndType === 'date' ? parsed.repeat_end_date : null;
+      // Grok isn't told what time to use when none was mentioned, so its
+      // guess for due_at is unreliable whenever due_has_time is false —
+      // recompute from just the date, same rule as manual creation (today
+      // → now, future → 09:00) instead of trusting whatever time it picked.
+      let dueAt = parsed.due_at;
+      if (dueAt && parsed.due_has_time === false) {
+        dueAt = resolveDueAtWithoutTime(dateKey(new Date(dueAt))).toISOString();
+      }
       addTask({
         title: parsed.title,
-        due_at: parsed.due_at,
+        due_at: dueAt,
         dueHasTime: parsed.due_has_time,
         recurrence_note: buildRecurrenceNote(repeatType, repeatDays, timesPerDay, repeatEndType, repeatCount, repeatEndDate),
         timesPerDay,

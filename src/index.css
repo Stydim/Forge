@@ -401,6 +401,83 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   color: var(--text-primary);
 }
 
+.snooze-menu-wrap {
+  position: relative;
+}
+
+.snooze-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 200px;
+}
+
+.snooze-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.snooze-menu-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.snooze-menu-stepper button {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.snooze-menu-stepper button:hover {
+  border-color: var(--accent-teal);
+}
+
+.snooze-menu-stepper span {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.875rem;
+}
+
+.snooze-menu-confirm {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-teal-bg);
+  color: var(--accent-teal-dark);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.snooze-menu-confirm:hover {
+  background: var(--accent-teal);
+  color: var(--text-inverse);
+}
+
 .btn-pill {
   padding: 9px 18px;
   border-radius: var(--radius-full);

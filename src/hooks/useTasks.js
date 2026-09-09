@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
+import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
 
 async function createSubtaskRows(taskId, count) {
   if (count <= 1) return [];
@@ -87,6 +88,11 @@ export function useTasks() {
 
     const nextDate = getNextOccurrence(task.due_at, task.repeat_type, task.repeat_days);
     if (!nextDate) return;
+    // A no-time task's next occurrence shouldn't just inherit whatever
+    // incidental time-of-day the previous one happened to carry (e.g. the
+    // "now" moment it was first created at) — re-resolve fresh so it lands
+    // on the same 09:00 default a brand-new no-time task would get.
+    const nextDueAt = task.due_has_time ? nextDate : resolveDueAtWithoutTime(dateKey(nextDate));
 
     // Respect "ends after N times" / "ends on date" — stop spawning once the series is done.
     let occurrencesLeft = task.repeat_occurrences_left;
@@ -94,7 +100,7 @@ export function useTasks() {
       occurrencesLeft = (task.repeat_occurrences_left ?? 1) - 1;
       if (occurrencesLeft <= 0) return;
     }
-    if (task.repeat_end_type === 'date' && task.repeat_end_date && nextDate > new Date(task.repeat_end_date)) {
+    if (task.repeat_end_type === 'date' && task.repeat_end_date && nextDueAt > new Date(task.repeat_end_date)) {
       return;
     }
 
@@ -103,7 +109,7 @@ export function useTasks() {
       .insert({
         kind: 'task',
         title: task.title,
-        due_at: nextDate.toISOString(),
+        due_at: nextDueAt.toISOString(),
         due_has_time: task.due_has_time,
         recurrence_note: buildRecurrenceNote(
           task.repeat_type, task.repeat_days, task.times_per_day,
