@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
 import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
@@ -51,6 +51,11 @@ export function useTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Guards completeAndRespawn against firing twice for the same task before
+  // the optimistic removal re-renders (a fast double-click/double-tap) —
+  // without it, both calls insert their own "next occurrence" row and the
+  // series forks into duplicate parallel copies.
+  const completingRef = useRef(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,58 +81,64 @@ export function useTasks() {
   // Marks a task done and, if it has a repeat rule, spawns the next occurrence
   // (fresh due date, zeroed counters, fresh 1..N chips) so the series keeps going.
   const completeAndRespawn = useCallback(async (task) => {
-    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+    if (completingRef.current.has(task.id)) return; // already in flight for this task
+    completingRef.current.add(task.id);
+    try {
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
 
-    const { error: err } = await supabase
-      .from('tasks')
-      .update({ completed: true, completed_at: new Date().toISOString() })
-      .eq('id', task.id);
-    if (err) { setError(err.message); load(); return; }
+      const { error: err } = await supabase
+        .from('tasks')
+        .update({ completed: true, completed_at: new Date().toISOString() })
+        .eq('id', task.id);
+      if (err) { setError(err.message); load(); return; }
 
-    if (!task.repeat_type || task.repeat_type === 'none') return;
+      if (!task.repeat_type || task.repeat_type === 'none') return;
 
-    const nextDate = getNextOccurrence(task.due_at, task.repeat_type, task.repeat_days);
-    if (!nextDate) return;
-    // A no-time task's next occurrence shouldn't just inherit whatever
-    // incidental time-of-day the previous one happened to carry (e.g. the
-    // "now" moment it was first created at) — re-resolve fresh so it lands
-    // on the same 09:00 default a brand-new no-time task would get.
-    const nextDueAt = task.due_has_time ? nextDate : resolveDueAtWithoutTime(dateKey(nextDate));
+      const nextDate = getNextOccurrence(task.due_at, task.repeat_type, task.repeat_days);
+      if (!nextDate) return;
+      // A no-time task's next occurrence shouldn't just inherit whatever
+      // incidental time-of-day the previous one happened to carry (e.g. the
+      // "now" moment it was first created at) — re-resolve fresh so it lands
+      // on the same 09:00 default a brand-new no-time task would get.
+      const nextDueAt = task.due_has_time ? nextDate : resolveDueAtWithoutTime(dateKey(nextDate));
 
-    // Respect "ends after N times" / "ends on date" — stop spawning once the series is done.
-    let occurrencesLeft = task.repeat_occurrences_left;
-    if (task.repeat_end_type === 'count') {
-      occurrencesLeft = (task.repeat_occurrences_left ?? 1) - 1;
-      if (occurrencesLeft <= 0) return;
+      // Respect "ends after N times" / "ends on date" — stop spawning once the series is done.
+      let occurrencesLeft = task.repeat_occurrences_left;
+      if (task.repeat_end_type === 'count') {
+        occurrencesLeft = (task.repeat_occurrences_left ?? 1) - 1;
+        if (occurrencesLeft <= 0) return;
+      }
+      if (task.repeat_end_type === 'date' && task.repeat_end_date && nextDueAt > new Date(task.repeat_end_date)) {
+        return;
+      }
+
+      const { data: newTask, error: insertErr } = await supabase
+        .from('tasks')
+        .insert({
+          kind: 'task',
+          title: task.title,
+          due_at: nextDueAt.toISOString(),
+          due_has_time: task.due_has_time,
+          recurrence_note: buildRecurrenceNote(
+            task.repeat_type, task.repeat_days, task.times_per_day,
+            task.repeat_end_type, occurrencesLeft, task.repeat_end_date,
+          ),
+          repeat_type: task.repeat_type,
+          repeat_days: task.repeat_days,
+          times_per_day: task.times_per_day,
+          repeat_end_type: task.repeat_end_type,
+          repeat_end_date: task.repeat_end_date,
+          repeat_occurrences_left: task.repeat_end_type === 'count' ? occurrencesLeft : null,
+        })
+        .select('*, subtasks(*)')
+        .single();
+      if (insertErr) { setError(insertErr.message); return; }
+
+      const subtasks = await createSubtaskRows(newTask.id, task.times_per_day);
+      setTasks((prev) => [...prev, { ...newTask, subtasks }]);
+    } finally {
+      completingRef.current.delete(task.id);
     }
-    if (task.repeat_end_type === 'date' && task.repeat_end_date && nextDueAt > new Date(task.repeat_end_date)) {
-      return;
-    }
-
-    const { data: newTask, error: insertErr } = await supabase
-      .from('tasks')
-      .insert({
-        kind: 'task',
-        title: task.title,
-        due_at: nextDueAt.toISOString(),
-        due_has_time: task.due_has_time,
-        recurrence_note: buildRecurrenceNote(
-          task.repeat_type, task.repeat_days, task.times_per_day,
-          task.repeat_end_type, occurrencesLeft, task.repeat_end_date,
-        ),
-        repeat_type: task.repeat_type,
-        repeat_days: task.repeat_days,
-        times_per_day: task.times_per_day,
-        repeat_end_type: task.repeat_end_type,
-        repeat_end_date: task.repeat_end_date,
-        repeat_occurrences_left: task.repeat_end_type === 'count' ? occurrencesLeft : null,
-      })
-      .select('*, subtasks(*)')
-      .single();
-    if (insertErr) { setError(insertErr.message); return; }
-
-    const subtasks = await createSubtaskRows(newTask.id, task.times_per_day);
-    setTasks((prev) => [...prev, { ...newTask, subtasks }]);
   }, [load]);
 
   const completeTask = useCallback((id) => {
