@@ -4,12 +4,14 @@ import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TasksPage from './pages/TasksPage';
 import GoalsPage from './pages/GoalsPage';
+import HabitsPage from './pages/HabitsPage';
 import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
 import SettingsPage from './pages/SettingsPage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
+import { useHabits } from './hooks/useHabits';
 import { useActiveCharacter } from './hooks/useActiveCharacter';
 import { useBackground } from './hooks/useBackground';
 import { getBackground } from './lib/backgrounds';
@@ -18,6 +20,7 @@ const SELECTED_TASK_KEY = 'forge:selected-task-id';
 
 export default function App() {
   const tasks = useTasks();
+  const habits = useHabits();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
@@ -117,6 +120,7 @@ export default function App() {
             }
           />
           <Route path="/goals" element={<GoalsPage tasks={tasks} />} />
+          <Route path="/habits" element={<HabitsPage habits={habits} />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route
             path="/characters"

@@ -42,15 +42,42 @@ create table snooze_events (
   occurred_at timestamptz not null default now()
 );
 
+-- Habits: a persistent recurring practice tracked by day, not a task that
+-- gets completed-and-respawned. One row per habit; completions are a
+-- separate per-day log so streaks/history are computed from real data.
+create table habits (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  icon text, -- a single emoji, shown instead of a photo avatar
+  color text not null default '#1B8A78',
+  -- Which days of the week this habit is due — empty/null means every day.
+  target_days text[],
+  times_per_day integer not null default 1,
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table habit_completions (
+  id uuid primary key default gen_random_uuid(),
+  habit_id uuid not null references habits(id) on delete cascade,
+  date date not null,
+  count integer not null default 0,
+  unique (habit_id, date)
+);
+
 alter table tasks enable row level security;
 alter table subtasks enable row level security;
 alter table snooze_events enable row level security;
+alter table habits enable row level security;
+alter table habit_completions enable row level security;
 
 -- No auth yet: allow the anon (publishable) key full access.
 -- Tighten this once per-user auth is added.
 create policy "anon full access" on tasks for all using (true) with check (true);
 create policy "anon full access" on subtasks for all using (true) with check (true);
 create policy "anon full access" on snooze_events for all using (true) with check (true);
+create policy "anon full access" on habits for all using (true) with check (true);
+create policy "anon full access" on habit_completions for all using (true) with check (true);
 
 -- Seed with the same three example tasks currently shown as mock data.
 insert into tasks (kind, title, due_at, recurrence_note, reminder_count, snooze_count)

@@ -1452,6 +1452,74 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   background: var(--accent-teal-dark);
 }
 
+/* ---------- Habits ---------- */
+.habit-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.habit-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+}
+
+.habit-history-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.habit-history-day {
+  width: 100%;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--bg-chip);
+}
+
+.habit-history-day.off {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+}
+
+.habit-history-day.today {
+  box-shadow: 0 0 0 1.5px var(--text-primary);
+}
+
+.habit-icon-input {
+  max-width: 90px;
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.habit-color-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.habit-color-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  transition: transform var(--transition-fast);
+}
+
+.habit-color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.habit-color-swatch.active {
+  border-color: var(--text-primary);
+}
+
 /* ---------- Progress page ---------- */
 .progress-page {
   padding: 32px;

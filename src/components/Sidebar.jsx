@@ -7,6 +7,7 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
   const navItems = [
     { to: '/tasks', label: 'Задачи', count: taskCount },
     { to: '/goals', label: 'Цели', count: goalCount },
+    { to: '/habits', label: 'Привычки' },
     { to: '/progress', label: 'Прогресс' },
     { to: '/characters', label: 'Персонажи' },
     { to: '/archive', label: 'Архив' },
