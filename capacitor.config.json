@@ -1,0 +1,9 @@
+{
+  "appId": "com.stydim.forge",
+  "appName": "Forge",
+  "webDir": "dist",
+  "server": {
+    "url": "https://forge-fii5.onrender.com",
+    "cleartext": false
+  }
+}
