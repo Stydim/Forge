@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TasksPage from './pages/TasksPage';
 import GoalsPage from './pages/GoalsPage';
@@ -21,6 +22,10 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
   const [backgroundId, setBackgroundId] = useBackground();
+  // The sidebar (nav + character card) becomes a slide-in drawer below the
+  // 768px breakpoint — it was previously just `display:none` there with no
+  // replacement, so mobile had no way to navigate at all.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const background = getBackground(backgroundId);
   // Lives here (not inside TasksPage) so it survives TasksPage remounting —
   // e.g. the sidebar's Цели/Прогресс links currently redirect back to
@@ -43,6 +48,7 @@ export default function App() {
   const openNewTaskModal = () => {
     setEditingTask(null);
     setModalOpen(true);
+    setMobileNavOpen(false);
   };
 
   const openEditTaskModal = (task) => {
@@ -68,11 +74,21 @@ export default function App() {
         backgroundAttachment: 'fixed',
       } : undefined}
     >
+      <div className="mobile-topbar">
+        <button className="mobile-menu-btn" onClick={() => setMobileNavOpen(true)} aria-label="Открыть меню">
+          <Menu size={22} />
+        </button>
+        <img className="mobile-topbar-logo" src="/logo.png" alt="" />
+        <span className="mobile-topbar-title">Forge</span>
+      </div>
+      {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <Sidebar
         onNewTask={openNewTaskModal}
         taskCount={taskCount}
         goalCount={goalCount}
         activeCharacterId={activeCharacterId}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
       />
       <main className="app-content">
         <Routes>

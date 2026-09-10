@@ -1,7 +1,8 @@
 import { NavLink, Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { getCharacter } from '../lib/characters';
 
-export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharacterId }) {
+export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharacterId, mobileOpen, onCloseMobile }) {
   const character = getCharacter(activeCharacterId);
   const navItems = [
     { to: '/tasks', label: 'Задачи', count: taskCount },
@@ -13,10 +14,13 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="sidebar-logo">
         <img className="sidebar-logo-icon" src="/logo.png" alt="" />
         <span className="sidebar-logo-text">Forge</span>
+        <button className="sidebar-close-btn" onClick={onCloseMobile} aria-label="Закрыть меню">
+          <X size={20} />
+        </button>
       </div>
 
       <button className="sidebar-new-task" onClick={onNewTask}>+ Новая задача</button>
@@ -26,6 +30,7 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onCloseMobile}
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
             <span>{item.label}</span>
@@ -36,7 +41,7 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
 
       <div className="sidebar-spacer" />
 
-      <Link to="/characters" className="sidebar-companion">
+      <Link to="/characters" className="sidebar-companion" onClick={onCloseMobile}>
         <div className="sidebar-companion-name">{character.name}</div>
         <img className="sidebar-companion-avatar" src={character.avatar} alt={character.name} />
         <div className="sidebar-companion-desc">{character.tagline}</div>

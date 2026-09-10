@@ -118,6 +118,21 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   flex-shrink: 0;
 }
 
+.sidebar-close-btn {
+  display: none;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  padding: 4px;
+}
+
+.mobile-topbar {
+  display: none;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
 .sidebar-logo-text {
   font-size: 1.15rem;
   font-weight: 800;
@@ -1673,8 +1688,62 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 }
 
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .app-content { margin-left: 0; }
+  /* No room for a permanent sidebar — it becomes an off-canvas drawer
+     (slides in from the left, toggled by the hamburger button in
+     .mobile-topbar) instead of just vanishing with nothing to replace it. */
+  .sidebar {
+    z-index: 100;
+    /* On desktop the sidebar is intentionally transparent so .app-layout's
+       shared background (plain cream or a chosen photo) shows through it
+       seamlessly. As a fixed overlay drawer here, that same transparency
+       let the page content behind it bleed through — needs its own opaque
+       backing regardless of which background is active. */
+    background: var(--bg-page);
+    transform: translateX(-100%);
+    transition: transform var(--transition-fast);
+    box-shadow: 0 0 0 transparent;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 24px 0 48px rgba(0, 0, 0, 0.18);
+  }
+  .sidebar-close-btn { display: flex; align-items: center; justify-content: center; }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    padding: 0 16px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 80;
+  }
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+  .mobile-topbar-logo { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+  .mobile-topbar-title { font-weight: 800; font-size: 1.05rem; }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 14, 0.45);
+    z-index: 90;
+  }
+
+  .app-content { margin-left: 0; padding-top: 56px; }
   .tasks-page { padding: 20px 16px 32px; }
   .page-heading { font-size: 1.5rem; }
   .task-card-row { flex-wrap: wrap; }
