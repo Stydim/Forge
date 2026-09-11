@@ -3,11 +3,15 @@ import { CHARACTERS, COMING_SOON_CHARACTERS } from '../lib/characters';
 
 // Plain photo by default; hovering plays the character's living-portrait
 // video (if it has one), looping until the cursor leaves, then it's back
-// to the static photo — never autoplaying unattended.
+// to the static photo — never autoplaying unattended. Touchscreens have no
+// real hover state (mouseenter either never fires or fires inconsistently
+// right before a click), so devices without true hover get tap-to-toggle
+// instead — checked via the (hover: hover) media feature, not UA sniffing.
 function CharacterAvatar({ character }) {
   const [failed, setFailed] = useState(false);
   const [hovering, setHovering] = useState(false);
   const videoRef = useRef(null);
+  const canHover = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches;
 
   if (failed || !character.video) {
     return (
@@ -25,19 +29,22 @@ function CharacterAvatar({ character }) {
     ? { top: `${crop.top}%`, left: `${crop.left}%`, width: `${crop.size}%`, height: `${crop.size}%` }
     : { top: 0, left: 0, width: '100%', height: '100%' };
 
+  const play = () => {
+    setHovering(true);
+    videoRef.current?.play();
+  };
+  const stop = () => {
+    setHovering(false);
+    const v = videoRef.current;
+    if (v) { v.pause(); v.currentTime = 0; }
+  };
+
+  const interactionProps = canHover
+    ? { onMouseEnter: play, onMouseLeave: stop }
+    : { onClick: () => (hovering ? stop() : play()) };
+
   return (
-    <div
-      className="character-avatar character-avatar-media-wrap"
-      onMouseEnter={() => {
-        setHovering(true);
-        videoRef.current?.play();
-      }}
-      onMouseLeave={() => {
-        setHovering(false);
-        const v = videoRef.current;
-        if (v) { v.pause(); v.currentTime = 0; }
-      }}
-    >
+    <div className="character-avatar character-avatar-media-wrap" {...interactionProps}>
       <img className="character-avatar-media" src={character.avatar} alt={character.name} style={{ opacity: hovering ? 0 : 1 }} />
       <video
         ref={videoRef}
