@@ -1977,4 +1977,10 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   .character-soon-badge {
     margin-left: 0;
   }
+
+  /* 5 rigid columns didn't fit a phone width at all — the grid forced the
+     whole page to scroll horizontally (confirmed: body.scrollWidth 598px
+     against a 390px viewport). Wrap into 2 columns instead. */
+  .progress-page { padding: 20px 16px 32px; }
+  .progress-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
