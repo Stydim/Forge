@@ -1493,6 +1493,20 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   border-color: transparent;
 }
 
+.habit-checkin-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.habit-checkin-btn:disabled:hover {
+  border-color: var(--border-color);
+  color: var(--text-tertiary);
+}
+
+.habit-card {
+  cursor: pointer;
+}
+
 .habit-history-row {
   display: flex;
   gap: 4px;
@@ -1541,6 +1555,91 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 .habit-color-swatch.active {
   border-color: var(--text-primary);
+}
+
+.habit-stats-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.habit-stats-heading .task-modal-title {
+  margin: 0;
+}
+
+.habit-stats-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.habit-stats-month-label {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  text-transform: capitalize;
+  min-width: 140px;
+  text-align: center;
+}
+
+.habit-stats-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.habit-stats-weekdays span {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.habit-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.habit-stats-cell {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background: var(--bg-chip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.habit-stats-cell.empty {
+  background: transparent;
+}
+
+.habit-stats-cell.future {
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.habit-stats-cell.off {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-tertiary);
+}
+
+.habit-stats-cell.today {
+  box-shadow: 0 0 0 1.5px var(--text-primary);
+}
+
+.habit-stats-summary {
+  margin-top: 20px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 /* ---------- Progress page ---------- */

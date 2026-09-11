@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import HabitCard from '../components/HabitCard';
 import HabitFormModal from '../components/HabitFormModal';
+import HabitStatsModal from '../components/HabitStatsModal';
 
 export default function HabitsPage({ habits: habitsState }) {
   const { habits, loading, error, addHabit, updateHabit, deleteHabit, toggleHabitDay } = habitsState;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
+  const [statsHabitId, setStatsHabitId] = useState(null);
+  const statsHabit = habits.find((h) => h.id === statsHabitId) ?? null;
 
   const openNewHabitModal = () => {
     setEditingHabit(null);
@@ -44,6 +47,7 @@ export default function HabitsPage({ habits: habitsState }) {
             habit={habit}
             onToggle={toggleHabitDay}
             onEdit={openEditHabitModal}
+            onOpenStats={(h) => setStatsHabitId(h.id)}
           />
         ))}
       </div>
@@ -56,6 +60,8 @@ export default function HabitsPage({ habits: habitsState }) {
         onUpdate={updateHabit}
         onDelete={deleteHabit}
       />
+
+      {statsHabit && <HabitStatsModal habit={statsHabit} onClose={() => setStatsHabitId(null)} />}
     </div>
   );
 }

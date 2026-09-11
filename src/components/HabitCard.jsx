@@ -6,10 +6,11 @@ import { pluralRu } from '../lib/format';
 
 const HISTORY_DAYS = 14;
 
-export default function HabitCard({ habit, onToggle, onEdit }) {
+export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
   const todayKey = localDateKey(new Date().toISOString());
   const todayCount = habit.completions[todayKey] || 0;
   const isCompleted = todayCount >= habit.times_per_day;
+  const dueToday = isHabitDueOn(habit.target_days, new Date());
   const streak = calcHabitStreak(habit);
 
   const daysLabel = habit.target_days && habit.target_days.length
@@ -30,7 +31,7 @@ export default function HabitCard({ habit, onToggle, onEdit }) {
   }
 
   return (
-    <div className="task-card habit-card">
+    <div className="task-card habit-card" onClick={() => onOpenStats(habit)}>
       <div className="task-card-row">
         <div className="habit-card-heading">
           <div className="habit-icon-badge" style={{ background: `${habit.color}22`, color: habit.color }}>
@@ -45,12 +46,18 @@ export default function HabitCard({ habit, onToggle, onEdit }) {
           <button
             className={`habit-checkin-btn${isCompleted ? ' done' : ''}`}
             style={isCompleted ? { color: habit.color, background: `${habit.color}18` } : undefined}
-            onClick={() => onToggle(habit.id, todayKey)}
-            aria-label={isCompleted ? 'Выполнено' : 'Отметить выполнение'}
+            disabled={!dueToday}
+            onClick={(e) => { e.stopPropagation(); onToggle(habit.id, todayKey); }}
+            aria-label={!dueToday ? 'Сегодня не запланировано' : (isCompleted ? 'Выполнено' : 'Отметить выполнение')}
+            title={!dueToday ? 'Сегодня не запланировано для этой привычки' : undefined}
           >
             {isCompleted ? <CheckCircle2 size={22} /> : <Plus size={20} strokeWidth={2.5} />}
           </button>
-          <button className="task-card-icon-btn" onClick={() => onEdit(habit)} aria-label="Изменить привычку">
+          <button
+            className="task-card-icon-btn"
+            onClick={(e) => { e.stopPropagation(); onEdit(habit); }}
+            aria-label="Изменить привычку"
+          >
             <Pencil size={16} />
           </button>
         </div>
