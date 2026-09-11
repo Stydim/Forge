@@ -7,6 +7,27 @@ export function isHabitDueOn(targetDays, date) {
   return targetDays.includes(DAY_TOKENS[date.getDay()]);
 }
 
+// 0..1 fraction of a day's times-per-day target reached — drives the
+// pie/bar fill so "1 of 2" visibly reads as half-done, not just "not done".
+export function habitProgress(count, timesPerDay) {
+  return Math.max(0, Math.min(1, count / Math.max(1, timesPerDay)));
+}
+
+// A conic-gradient "pie" fill for round/square indicators — grows clockwise
+// from empty (bg-chip) to a full ring of the habit's color.
+export function habitPieFill(progress, color) {
+  if (progress <= 0) return undefined;
+  if (progress >= 1) return { background: color };
+  return { background: `conic-gradient(${color} ${progress * 360}deg, var(--bg-chip) 0deg)` };
+}
+
+// A left-to-right linear fill for thin bars (the history strip).
+export function habitBarFill(progress, color) {
+  if (progress <= 0) return undefined;
+  if (progress >= 1) return { background: color };
+  return { background: `linear-gradient(to right, ${color} ${progress * 100}%, var(--bg-chip) 0)` };
+}
+
 // Walks backward from today counting consecutive DUE days that were fully
 // completed. A due-but-not-yet-done today doesn't break the streak (the day
 // isn't over) — it just isn't counted until it's actually done, mirroring

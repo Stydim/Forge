@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { localDateKey } from '../lib/streaks';
-import { isHabitDueOn } from '../lib/habitStreak';
+import { isHabitDueOn, habitProgress, habitPieFill } from '../lib/habitStreak';
 
 const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTH_LABEL_OPTS = { month: 'long', year: 'numeric' };
@@ -40,9 +40,10 @@ export default function HabitStatsModal({ habit, onToggle, onClose }) {
       const isFuture = d > today;
       const due = !isFuture && isHabitDueOn(habit.target_days, d);
       const count = due ? (habit.completions[localDateKey(d.toISOString())] || 0) : 0;
-      const isDone = due && count >= habit.times_per_day;
+      const progress = due ? habitProgress(count, habit.times_per_day) : 0;
+      const isDone = progress >= 1;
       if (due) { target += 1; if (isDone) done += 1; }
-      return { date: d, due, isDone, isFuture, isToday: localDateKey(d.toISOString()) === localDateKey(today.toISOString()) };
+      return { date: d, due, progress, isDone, isFuture, isToday: localDateKey(d.toISOString()) === localDateKey(today.toISOString()) };
     });
     return { cells: withState, targetCount: target, doneCount: done };
   }, [habit, view]);
@@ -96,7 +97,7 @@ export default function HabitStatsModal({ habit, onToggle, onClose }) {
                 key={i}
                 type="button"
                 className={classes.join(' ')}
-                style={c.isDone ? { background: habit.color, color: '#fff' } : undefined}
+                style={{ ...habitPieFill(c.progress, habit.color), color: c.isDone ? '#fff' : undefined }}
                 disabled={!c.due}
                 onClick={() => onToggle(habit.id, dateKey)}
                 title={dateKey}

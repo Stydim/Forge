@@ -1,7 +1,7 @@
 import { CheckCircle2, Pencil, Plus } from 'lucide-react';
 import { DAY_LABELS } from '../lib/recurrence';
 import { localDateKey } from '../lib/streaks';
-import { calcHabitStreak, isHabitDueOn } from '../lib/habitStreak';
+import { calcHabitStreak, isHabitDueOn, habitProgress, habitPieFill, habitBarFill } from '../lib/habitStreak';
 import { pluralRu } from '../lib/format';
 
 const HISTORY_DAYS = 14;
@@ -9,7 +9,8 @@ const HISTORY_DAYS = 14;
 export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
   const todayKey = localDateKey(new Date().toISOString());
   const todayCount = habit.completions[todayKey] || 0;
-  const isCompleted = todayCount >= habit.times_per_day;
+  const todayProgress = habitProgress(todayCount, habit.times_per_day);
+  const isCompleted = todayProgress >= 1;
   const dueToday = isHabitDueOn(habit.target_days, new Date());
   const streak = calcHabitStreak(habit);
 
@@ -27,7 +28,8 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
     const key = localDateKey(d.toISOString());
     const due = isHabitDueOn(habit.target_days, d);
     const count = habit.completions[key] || 0;
-    history.push({ key, due, done: due && count >= habit.times_per_day, isToday: i === 0 });
+    const progress = due ? habitProgress(count, habit.times_per_day) : 0;
+    history.push({ key, due, progress, isToday: i === 0 });
   }
 
   return (
@@ -45,7 +47,10 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
         <div className="task-card-actions">
           <button
             className={`habit-checkin-btn${isCompleted ? ' done' : ''}`}
-            style={isCompleted ? { color: habit.color, background: `${habit.color}18` } : undefined}
+            style={{
+              ...habitPieFill(todayProgress, habit.color),
+              color: isCompleted ? '#fff' : undefined,
+            }}
             disabled={!dueToday}
             onClick={(e) => { e.stopPropagation(); onToggle(habit.id, todayKey); }}
             aria-label={!dueToday ? 'Сегодня не запланировано' : (isCompleted ? 'Выполнено' : 'Отметить выполнение')}
@@ -68,7 +73,7 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
           <div
             key={d.key}
             className={`habit-history-day${d.due ? '' : ' off'}${d.isToday ? ' today' : ''}`}
-            style={d.done ? { background: habit.color } : undefined}
+            style={habitBarFill(d.progress, habit.color)}
             title={d.key}
           />
         ))}
