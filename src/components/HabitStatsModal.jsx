@@ -15,7 +15,7 @@ function buildMonthGrid(year, month) {
   return cells;
 }
 
-export default function HabitStatsModal({ habit, onClose }) {
+export default function HabitStatsModal({ habit, onToggle, onClose }) {
   const now = new Date();
   const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const isCurrentMonth = view.year === now.getFullYear() && view.month === now.getMonth();
@@ -89,15 +89,20 @@ export default function HabitStatsModal({ habit, onClose }) {
             if (c.isToday) classes.push('today');
             if (!c.due && !c.isFuture) classes.push('off');
             if (c.isFuture) classes.push('future');
+            if (c.due) classes.push('clickable');
+            const dateKey = localDateKey(c.date.toISOString());
             return (
-              <div
+              <button
                 key={i}
+                type="button"
                 className={classes.join(' ')}
                 style={c.isDone ? { background: habit.color, color: '#fff' } : undefined}
-                title={localDateKey(c.date.toISOString())}
+                disabled={!c.due}
+                onClick={() => onToggle(habit.id, dateKey)}
+                title={dateKey}
               >
                 {c.date.getDate()}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -107,6 +112,7 @@ export default function HabitStatsModal({ habit, onClose }) {
             ? 'В этом месяце для привычки не было запланированных дней.'
             : `${doneCount} из ${targetCount} дней выполнено · ${rate}%`}
         </div>
+        <div className="habit-stats-hint">Кликни по дню, чтобы отметить или снять отметку задним числом.</div>
       </div>
     </div>
   );

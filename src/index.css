@@ -1608,6 +1608,8 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   aspect-ratio: 1;
   border-radius: var(--radius-md);
   background: var(--bg-chip);
+  border: none;
+  font: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1633,6 +1635,26 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 .habit-stats-cell.today {
   box-shadow: 0 0 0 1.5px var(--text-primary);
+}
+
+.habit-stats-cell.clickable {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.habit-stats-cell.clickable:hover {
+  transform: scale(1.08);
+}
+
+.habit-stats-cell:disabled {
+  cursor: default;
+}
+
+.habit-stats-hint {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 .habit-stats-summary {

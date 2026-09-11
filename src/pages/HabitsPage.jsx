@@ -61,7 +61,9 @@ export default function HabitsPage({ habits: habitsState }) {
         onDelete={deleteHabit}
       />
 
-      {statsHabit && <HabitStatsModal habit={statsHabit} onClose={() => setStatsHabitId(null)} />}
+      {statsHabit && (
+        <HabitStatsModal habit={statsHabit} onToggle={toggleHabitDay} onClose={() => setStatsHabitId(null)} />
+      )}
     </div>
   );
 }
