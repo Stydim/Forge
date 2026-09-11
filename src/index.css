@@ -1470,6 +1470,29 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   flex-shrink: 0;
 }
 
+.habit-checkin-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  border: 1px solid var(--border-color);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.habit-checkin-btn:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
+.habit-checkin-btn.done {
+  border-color: transparent;
+}
+
 .habit-history-row {
   display: flex;
   gap: 4px;

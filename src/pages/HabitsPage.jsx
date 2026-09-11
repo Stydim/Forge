@@ -3,7 +3,7 @@ import HabitCard from '../components/HabitCard';
 import HabitFormModal from '../components/HabitFormModal';
 
 export default function HabitsPage({ habits: habitsState }) {
-  const { habits, loading, error, addHabit, updateHabit, deleteHabit, setHabitCount } = habitsState;
+  const { habits, loading, error, addHabit, updateHabit, deleteHabit, toggleHabitDay } = habitsState;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
 
@@ -42,7 +42,7 @@ export default function HabitsPage({ habits: habitsState }) {
           <HabitCard
             key={habit.id}
             habit={habit}
-            onToggleChip={setHabitCount}
+            onToggle={toggleHabitDay}
             onEdit={openEditHabitModal}
           />
         ))}

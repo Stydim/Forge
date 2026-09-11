@@ -75,8 +75,7 @@ export function useHabits() {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  // Sets the exact completion count for one habit on one day (the chip UI
-  // computes this — clicking chip i means "i+1 done" or "i done" if undoing).
+  // Sets the exact completion count for one habit on one day.
   const setHabitCount = useCallback(async (habitId, dateKey, count) => {
     setHabits((prev) => prev.map((h) => (
       h.id === habitId ? { ...h, completions: { ...h.completions, [dateKey]: count } } : h
@@ -87,5 +86,15 @@ export function useHabits() {
     if (err) { setError(err.message); load(); }
   }, [load]);
 
-  return { habits, loading, error, addHabit, updateHabit, deleteHabit, setHabitCount };
+  // A single check-in tap: +1 each time, wrapping back to 0 once fully done
+  // (same cycle Sanctuary's habit tracker uses) — not a per-chip direct-set.
+  const toggleHabitDay = useCallback((habitId, dateKey) => {
+    const habit = habits.find((h) => h.id === habitId);
+    if (!habit) return;
+    const current = habit.completions[dateKey] || 0;
+    const next = current < habit.times_per_day ? current + 1 : 0;
+    return setHabitCount(habitId, dateKey, next);
+  }, [habits, setHabitCount]);
+
+  return { habits, loading, error, addHabit, updateHabit, deleteHabit, setHabitCount, toggleHabitDay };
 }

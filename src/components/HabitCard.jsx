@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react';
+import { CheckCircle2, Pencil, Plus } from 'lucide-react';
 import { DAY_LABELS } from '../lib/recurrence';
 import { localDateKey } from '../lib/streaks';
 import { calcHabitStreak, isHabitDueOn } from '../lib/habitStreak';
@@ -6,15 +6,16 @@ import { pluralRu } from '../lib/format';
 
 const HISTORY_DAYS = 14;
 
-export default function HabitCard({ habit, onToggleChip, onEdit }) {
+export default function HabitCard({ habit, onToggle, onEdit }) {
   const todayKey = localDateKey(new Date().toISOString());
   const todayCount = habit.completions[todayKey] || 0;
+  const isCompleted = todayCount >= habit.times_per_day;
   const streak = calcHabitStreak(habit);
 
   const daysLabel = habit.target_days && habit.target_days.length
     ? `по ${habit.target_days.map((d) => DAY_LABELS[d]).join(', ')}`
     : 'каждый день';
-  const timesLabel = habit.times_per_day > 1 ? ` · ${habit.times_per_day} раз в день` : '';
+  const timesLabel = habit.times_per_day > 1 ? ` · ${todayCount}/${habit.times_per_day} раз` : '';
   const streakLabel = streak > 0 ? ` · 🔥 ${streak} ${pluralRu(streak, 'день', 'дня', 'дней')}` : '';
 
   const history = [];
@@ -40,25 +41,19 @@ export default function HabitCard({ habit, onToggleChip, onEdit }) {
             <div className="task-card-meta">{daysLabel}{timesLabel}{streakLabel}</div>
           </div>
         </div>
-        <button className="task-card-icon-btn" onClick={() => onEdit(habit)} aria-label="Изменить привычку">
-          <Pencil size={16} />
-        </button>
-      </div>
-
-      <div className="task-subtasks">
-        {Array.from({ length: habit.times_per_day }, (_, i) => {
-          const done = i < todayCount;
-          return (
-            <button
-              key={i}
-              className={`task-subtask-chip${done ? '' : ' pending'}`}
-              style={done ? { background: habit.color, borderColor: habit.color, color: '#fff' } : undefined}
-              onClick={() => onToggleChip(habit.id, todayKey, done ? i : i + 1)}
-            >
-              {i + 1}
-            </button>
-          );
-        })}
+        <div className="task-card-actions">
+          <button
+            className={`habit-checkin-btn${isCompleted ? ' done' : ''}`}
+            style={isCompleted ? { color: habit.color, background: `${habit.color}18` } : undefined}
+            onClick={() => onToggle(habit.id, todayKey)}
+            aria-label={isCompleted ? 'Выполнено' : 'Отметить выполнение'}
+          >
+            {isCompleted ? <CheckCircle2 size={22} /> : <Plus size={20} strokeWidth={2.5} />}
+          </button>
+          <button className="task-card-icon-btn" onClick={() => onEdit(habit)} aria-label="Изменить привычку">
+            <Pencil size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="habit-history-row">
