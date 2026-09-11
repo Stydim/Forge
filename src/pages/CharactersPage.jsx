@@ -3,15 +3,23 @@ import { CHARACTERS, COMING_SOON_CHARACTERS } from '../lib/characters';
 
 // Plain photo by default; hovering plays the character's living-portrait
 // video (if it has one), looping until the cursor leaves, then it's back
-// to the static photo — never autoplaying unattended. Touchscreens have no
-// real hover state (mouseenter either never fires or fires inconsistently
-// right before a click), so devices without true hover get tap-to-toggle
-// instead — checked via the (hover: hover) media feature, not UA sniffing.
+// to the static photo — never autoplaying unattended.
+//
+// First attempt branched once on matchMedia('(hover: hover)') and picked
+// either mouse handlers or a tap handler — turned out to still not fire on
+// a real device, most likely because some WebView reports hover support
+// wrong (or reports it right but never actually dispatches mouseenter for a
+// tap either way, so the branch itself doesn't matter — the real fix is to
+// stop trusting a static capability check at all). Pointer Events fix this
+// properly: every interaction carries its own real pointerType, checked at
+// the moment it happens — onPointerEnter/Leave only react to an actual
+// mouse, onClick (which fires for both a real click and a tap) is the
+// universal toggle, driven by the video's own .paused rather than React
+// state so it can't desync from whatever the mouse handlers just did.
 function CharacterAvatar({ character }) {
   const [failed, setFailed] = useState(false);
   const [hovering, setHovering] = useState(false);
   const videoRef = useRef(null);
-  const canHover = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches;
 
   if (failed || !character.video) {
     return (
@@ -39,12 +47,13 @@ function CharacterAvatar({ character }) {
     if (v) { v.pause(); v.currentTime = 0; }
   };
 
-  const interactionProps = canHover
-    ? { onMouseEnter: play, onMouseLeave: stop }
-    : { onClick: () => (hovering ? stop() : play()) };
-
   return (
-    <div className="character-avatar character-avatar-media-wrap" {...interactionProps}>
+    <div
+      className="character-avatar character-avatar-media-wrap"
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') play(); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') stop(); }}
+      onClick={() => (videoRef.current?.paused === false ? stop() : play())}
+    >
       <img className="character-avatar-media" src={character.avatar} alt={character.name} style={{ opacity: hovering ? 0 : 1 }} />
       <video
         ref={videoRef}
