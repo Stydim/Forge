@@ -948,6 +948,11 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   gap: 14px;
 }
 
+.character-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
 .character-avatar {
   width: 252px;
   height: 252px;
@@ -1959,4 +1964,17 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   .tasks-page { padding: 20px 16px 32px; }
   .page-heading { font-size: 1.5rem; }
   .task-card-row { flex-wrap: wrap; }
+
+  /* The 252px desktop avatar plus the select button left zero room on a
+     phone — the button rendered past the right edge of the screen
+     entirely, unreachable. Shrink the avatar and let the head row wrap so
+     the badge/button gets its own line instead of being pushed off-screen. */
+  .characters-page { padding: 20px 16px 32px; }
+  .character-avatar { width: 84px; height: 84px; }
+  .character-card-head { flex-wrap: wrap; }
+  .character-active-badge,
+  .character-select-btn,
+  .character-soon-badge {
+    margin-left: 0;
+  }
 }

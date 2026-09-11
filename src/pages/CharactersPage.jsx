@@ -71,7 +71,7 @@ export default function CharactersPage({ activeCharacterId, onSelectCharacter })
             <div key={c.id} className="character-card">
               <div className="character-card-head">
                 <CharacterAvatar character={c} />
-                <div>
+                <div className="character-card-info">
                   <div className="character-name">{c.name}</div>
                   <div className="character-tagline">{c.tagline}</div>
                 </div>
