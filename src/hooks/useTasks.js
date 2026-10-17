@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import * as api from '../lib/api';
 import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
 import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
 
@@ -10,12 +10,13 @@ async function createSubtaskRows(taskId, count) {
     label: String(i + 1),
     position: i,
   }));
-  const { data, error } = await supabase.from('subtasks').insert(rows).select('*');
-  if (error) {
-    console.warn('subtask creation failed:', error.message);
+  try {
+    const data = await api.insertSubtasks(rows);
+    return data.sort((a, b) => a.position - b.position);
+  } catch (err) {
+    console.warn('subtask creation failed:', err.message);
     return [];
   }
-  return data.sort((a, b) => a.position - b.position);
 }
 
 // Adds/removes daily-reminder chip rows so the count matches the edited
@@ -25,7 +26,7 @@ async function reconcileSubtaskRows(taskId, currentSubtasks, newCount) {
   const sorted = [...currentSubtasks].sort((a, b) => a.position - b.position);
 
   if (target <= 1) {
-    if (sorted.length > 0) await supabase.from('subtasks').delete().in('id', sorted.map((s) => s.id));
+    if (sorted.length > 0) await api.deleteSubtasks(sorted.map((s) => s.id));
     return [];
   }
   if (sorted.length === target) return sorted;
@@ -36,14 +37,18 @@ async function reconcileSubtaskRows(taskId, currentSubtasks, newCount) {
       label: String(sorted.length + i + 1),
       position: sorted.length + i,
     }));
-    const { data, error } = await supabase.from('subtasks').insert(rows).select('*');
-    if (error) { console.warn('subtask reconcile failed:', error.message); return sorted; }
-    return [...sorted, ...data].sort((a, b) => a.position - b.position);
+    try {
+      const data = await api.insertSubtasks(rows);
+      return [...sorted, ...data].sort((a, b) => a.position - b.position);
+    } catch (err) {
+      console.warn('subtask reconcile failed:', err.message);
+      return sorted;
+    }
   }
 
   const toKeep = sorted.slice(0, target);
   const toRemove = sorted.slice(target);
-  await supabase.from('subtasks').delete().in('id', toRemove.map((s) => s.id));
+  await api.deleteSubtasks(toRemove.map((s) => s.id));
   return toKeep;
 }
 
@@ -59,17 +64,12 @@ export function useTasks() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .select('*, subtasks(*)')
-      .eq('completed', false)
-      .order('created_at', { ascending: true });
-
-    if (err) {
-      setError(err.message);
-    } else {
+    try {
+      const data = await api.listOpenTasks();
       setError(null);
       setTasks(data.map((t) => ({ ...t, subtasks: t.subtasks.sort((a, b) => a.position - b.position) })));
+    } catch (err) {
+      setError(err.message);
     }
     setLoading(false);
   }, []);
@@ -86,11 +86,11 @@ export function useTasks() {
     try {
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
 
-      const { error: err } = await supabase
-        .from('tasks')
-        .update({ completed: true, completed_at: new Date().toISOString() })
-        .eq('id', task.id);
-      if (err) { setError(err.message); load(); return; }
+      try {
+        await api.updateTask(task.id, { completed: true, completed_at: new Date().toISOString() });
+      } catch (err) {
+        setError(err.message); load(); return;
+      }
 
       if (!task.repeat_type || task.repeat_type === 'none') return;
 
@@ -112,9 +112,9 @@ export function useTasks() {
         return;
       }
 
-      const { data: newTask, error: insertErr } = await supabase
-        .from('tasks')
-        .insert({
+      let newTask;
+      try {
+        newTask = await api.createTask({
           kind: 'task',
           title: task.title,
           due_at: nextDueAt.toISOString(),
@@ -129,10 +129,10 @@ export function useTasks() {
           repeat_end_type: task.repeat_end_type,
           repeat_end_date: task.repeat_end_date,
           repeat_occurrences_left: task.repeat_end_type === 'count' ? occurrencesLeft : null,
-        })
-        .select('*, subtasks(*)')
-        .single();
-      if (insertErr) { setError(insertErr.message); return; }
+        });
+      } catch (err) {
+        setError(err.message); return;
+      }
 
       const subtasks = await createSubtaskRows(newTask.id, task.times_per_day);
       setTasks((prev) => [...prev, { ...newTask, subtasks }]);
@@ -153,16 +153,14 @@ export function useTasks() {
     setTasks((prev) => prev.map((t) => (
       t.id === id ? { ...t, due_at: newDueAt, snooze_count: t.snooze_count + 1 } : t
     )));
-    const updateRes = await supabase
-      .from('tasks')
-      .update({ due_at: newDueAt, snooze_count: task.snooze_count + 1 })
-      .eq('id', id);
-    if (updateRes.error) { setError(updateRes.error.message); load(); return; }
+    try {
+      await api.updateTask(id, { due_at: newDueAt, snooze_count: task.snooze_count + 1 });
+    } catch (err) {
+      setError(err.message); load(); return;
+    }
 
     // Best-effort: powers the "по часам" chart, but shouldn't block the snooze itself.
-    supabase.from('snooze_events').insert({ task_id: id }).then(({ error: err }) => {
-      if (err) console.warn('snooze_events insert failed:', err.message);
-    });
+    api.insertSnoozeEvent(id).catch((err) => console.warn('snooze_events insert failed:', err.message));
   }, [tasks, load]);
 
   const toggleSubtask = useCallback(async (subtaskId, done) => {
@@ -170,8 +168,11 @@ export function useTasks() {
       ...t,
       subtasks: t.subtasks.map((s) => (s.id === subtaskId ? { ...s, done } : s)),
     })));
-    const { error: err } = await supabase.from('subtasks').update({ done }).eq('id', subtaskId);
-    if (err) { setError(err.message); load(); return; }
+    try {
+      await api.updateSubtask(subtaskId, { done });
+    } catch (err) {
+      setError(err.message); load(); return;
+    }
 
     // Checking off the last of today's "N раз в день" chips completes the task
     // (and, if it repeats, spawns tomorrow's occurrence with fresh chips).
@@ -187,11 +188,11 @@ export function useTasks() {
       completeAndRespawn(owner);
     } else {
       setTasks((prev) => prev.filter((t) => t.id !== owner.id));
-      const { error: completeErr } = await supabase
-        .from('tasks')
-        .update({ completed: true, completed_at: new Date().toISOString() })
-        .eq('id', owner.id);
-      if (completeErr) { setError(completeErr.message); load(); }
+      try {
+        await api.updateTask(owner.id, { completed: true, completed_at: new Date().toISOString() });
+      } catch (err) {
+        setError(err.message); load();
+      }
     }
   }, [tasks, load, completeAndRespawn]);
 
@@ -209,9 +210,9 @@ export function useTasks() {
   }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .insert({
+    let data;
+    try {
+      data = await api.createTask({
         kind: 'task',
         title: trimmed,
         due_at,
@@ -223,10 +224,10 @@ export function useTasks() {
         repeat_end_type: repeatType === 'none' ? 'never' : repeatEndType,
         repeat_end_date: repeatEndType === 'date' ? repeatEndDate : null,
         repeat_occurrences_left: repeatEndType === 'count' ? repeatCount : null,
-      })
-      .select('*, subtasks(*)')
-      .single();
-    if (err) { setError(err.message); return; }
+      });
+    } catch (err) {
+      setError(err.message); return;
+    }
 
     const subtasks = await createSubtaskRows(data.id, timesPerDay);
     setTasks((prev) => [...prev, { ...data, subtasks }]);
@@ -262,8 +263,11 @@ export function useTasks() {
       repeat_occurrences_left: repeatEndType === 'count' ? repeatCount : null,
     };
 
-    const { error: err } = await supabase.from('tasks').update(dbFields).eq('id', id);
-    if (err) { setError(err.message); load(); return; }
+    try {
+      await api.updateTask(id, dbFields);
+    } catch (err) {
+      setError(err.message); load(); return;
+    }
 
     const subtasks = await reconcileSubtaskRows(id, task.subtasks, timesPerDay);
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...dbFields, subtasks } : t)));
@@ -272,20 +276,23 @@ export function useTasks() {
   const addGoal = useCallback(async ({ title, due_at = null, steps = [] }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const { data, error: err } = await supabase
-      .from('tasks')
-      .insert({ kind: 'goal', title: trimmed, due_at })
-      .select('*, subtasks(*)')
-      .single();
-    if (err) { setError(err.message); return; }
+    let data;
+    try {
+      data = await api.createTask({ kind: 'goal', title: trimmed, due_at });
+    } catch (err) {
+      setError(err.message); return;
+    }
 
     const labels = steps.map((s) => s.label.trim()).filter(Boolean);
     let subtasks = [];
     if (labels.length) {
       const rows = labels.map((label, i) => ({ task_id: data.id, label, position: i }));
-      const { data: subData, error: subErr } = await supabase.from('subtasks').insert(rows).select('*');
-      if (subErr) console.warn('goal steps creation failed:', subErr.message);
-      else subtasks = subData.sort((a, b) => a.position - b.position);
+      try {
+        const subData = await api.insertSubtasks(rows);
+        subtasks = subData.sort((a, b) => a.position - b.position);
+      } catch (err) {
+        console.warn('goal steps creation failed:', err.message);
+      }
     }
     setTasks((prev) => [...prev, { ...data, subtasks }]);
   }, []);
@@ -300,8 +307,11 @@ export function useTasks() {
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    const { error: err } = await supabase.from('tasks').update({ title: trimmed, due_at }).eq('id', id);
-    if (err) { setError(err.message); load(); return; }
+    try {
+      await api.updateTask(id, { title: trimmed, due_at });
+    } catch (err) {
+      setError(err.message); load(); return;
+    }
 
     const cleanSteps = steps
       .map((s, i) => ({ id: s.id, label: s.label.trim(), position: i }))
@@ -313,14 +323,19 @@ export function useTasks() {
     const toInsert = cleanSteps.filter((s) => !s.id);
 
     await Promise.all([
-      toDelete.length ? supabase.from('subtasks').delete().in('id', toDelete) : null,
-      ...toUpdate.map((s) => supabase.from('subtasks').update({ label: s.label, position: s.position }).eq('id', s.id)),
+      toDelete.length ? api.deleteSubtasks(toDelete) : null,
+      ...toUpdate.map((s) => api.updateSubtask(s.id, { label: s.label, position: s.position })),
       toInsert.length
-        ? supabase.from('subtasks').insert(toInsert.map((s) => ({ task_id: id, label: s.label, position: s.position })))
+        ? api.insertSubtasks(toInsert.map((s) => ({ task_id: id, label: s.label, position: s.position })))
         : null,
     ].filter(Boolean));
 
-    const { data: freshSubtasks } = await supabase.from('subtasks').select('*').eq('task_id', id).order('position');
+    let freshSubtasks = [];
+    try {
+      freshSubtasks = await api.listSubtasksByTask(id);
+    } catch {
+      // best-effort refresh; local state below falls back to empty on failure
+    }
     setTasks((prev) => prev.map((t) => (
       t.id === id ? { ...t, title: trimmed, due_at, subtasks: freshSubtasks ?? [] } : t
     )));
@@ -329,8 +344,11 @@ export function useTasks() {
   // subtasks/snooze_events cascade-delete at the DB level (on delete cascade).
   const deleteTask = useCallback(async (id) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    const { error: err } = await supabase.from('tasks').delete().eq('id', id);
-    if (err) { setError(err.message); load(); }
+    try {
+      await api.deleteTask(id);
+    } catch (err) {
+      setError(err.message); load();
+    }
   }, [load]);
 
   return {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import * as api from '../lib/api';
 import { DAY_MS, localDateKey, computeStreaks } from '../lib/streaks';
 
 export function useStats() {
@@ -10,18 +10,18 @@ export function useStats() {
     setLoading(true);
     const since = new Date(Date.now() - 30 * DAY_MS).toISOString();
 
-    const [completedRes, snoozeRes] = await Promise.all([
-      supabase.from('tasks').select('completed_at, due_at, snooze_count').eq('completed', true),
-      supabase.from('snooze_events').select('occurred_at').gte('occurred_at', since),
-    ]);
-
-    if (completedRes.error) {
+    let completed, snoozeEvents;
+    try {
+      [completed, snoozeEvents] = await Promise.all([
+        api.listCompletedTaskStats(),
+        api.listSnoozeEventsSince(since),
+      ]);
+    } catch {
       setStats(null);
       setLoading(false);
       return;
     }
 
-    const completed = completedRes.data;
     const { current, record } = computeStreaks(completed.map((t) => localDateKey(t.completed_at)));
 
     const recent = completed.filter((t) => t.completed_at >= since);
@@ -35,7 +35,7 @@ export function useStats() {
       : null;
 
     const hourBuckets = new Array(24).fill(0);
-    (snoozeRes.data ?? []).forEach((s) => {
+    (snoozeEvents ?? []).forEach((s) => {
       hourBuckets[new Date(s.occurred_at).getHours()] += 1;
     });
 

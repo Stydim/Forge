@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import * as api from '../lib/api';
 
 function mapRow(row) {
   const completions = {};
@@ -15,17 +15,12 @@ export function useHabits() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from('habits')
-      .select('*, habit_completions(*)')
-      .eq('archived', false)
-      .order('created_at', { ascending: true });
-
-    if (err) {
-      setError(err.message);
-    } else {
+    try {
+      const data = await api.listHabits();
       setError(null);
       setHabits(data.map(mapRow));
+    } catch (err) {
+      setError(err.message);
     }
     setLoading(false);
   }, []);
@@ -37,19 +32,18 @@ export function useHabits() {
   const addHabit = useCallback(async ({ title, icon, color, targetDays, timesPerDay = 1 }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const { data, error: err } = await supabase
-      .from('habits')
-      .insert({
+    try {
+      const data = await api.createHabit({
         title: trimmed,
         icon: icon?.trim() || null,
         color,
         target_days: targetDays && targetDays.length ? targetDays : null,
         times_per_day: timesPerDay,
-      })
-      .select('*')
-      .single();
-    if (err) { setError(err.message); return; }
-    setHabits((prev) => [...prev, mapRow(data)]);
+      });
+      setHabits((prev) => [...prev, mapRow(data)]);
+    } catch (err) {
+      setError(err.message);
+    }
   }, []);
 
   const updateHabit = useCallback(async (id, { title, icon, color, targetDays, timesPerDay = 1 }) => {
@@ -62,17 +56,23 @@ export function useHabits() {
       target_days: targetDays && targetDays.length ? targetDays : null,
       times_per_day: timesPerDay,
     };
-    const { error: err } = await supabase.from('habits').update(fields).eq('id', id);
-    if (err) { setError(err.message); load(); return; }
-    setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, ...fields } : h)));
+    try {
+      await api.updateHabit(id, fields);
+      setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, ...fields } : h)));
+    } catch (err) {
+      setError(err.message); load();
+    }
   }, [load]);
 
   // Archive rather than hard-delete, same spirit as tasks going to the
   // archive on completion — keeps the completion history intact.
   const deleteHabit = useCallback(async (id) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
-    const { error: err } = await supabase.from('habits').update({ archived: true }).eq('id', id);
-    if (err) { setError(err.message); load(); }
+    try {
+      await api.updateHabit(id, { archived: true });
+    } catch (err) {
+      setError(err.message); load();
+    }
   }, [load]);
 
   // Sets the exact completion count for one habit on one day.
@@ -80,10 +80,11 @@ export function useHabits() {
     setHabits((prev) => prev.map((h) => (
       h.id === habitId ? { ...h, completions: { ...h.completions, [dateKey]: count } } : h
     )));
-    const { error: err } = await supabase
-      .from('habit_completions')
-      .upsert({ habit_id: habitId, date: dateKey, count }, { onConflict: 'habit_id,date' });
-    if (err) { setError(err.message); load(); }
+    try {
+      await api.upsertHabitCompletion(habitId, dateKey, count);
+    } catch (err) {
+      setError(err.message); load();
+    }
   }, [load]);
 
   // A single check-in tap: +1 each time, wrapping back to 0 once fully done

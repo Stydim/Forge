@@ -1,7 +1,16 @@
--- Forge: tasks + subtasks schema
+-- Forge: tasks + subtasks + habits schema.
+--
+-- Lives in its own `forge` schema on a Render Postgres instance shared with
+-- other apps (each kept in its own schema) — never touch `public` or any
+-- other schema from here. There's no RLS/policies here: the database has no
+-- public access at all, it's only reachable from server.js (over Render's
+-- internal network in production) via a single server-side credential, so
+-- access control is "only our own API can see this" rather than row-level.
+
+create schema if not exists forge;
 create extension if not exists pgcrypto;
 
-create table tasks (
+create table forge.tasks (
   id uuid primary key default gen_random_uuid(),
   kind text not null default 'task' check (kind in ('task', 'goal')),
   title text not null,
@@ -26,9 +35,9 @@ create table tasks (
   created_at timestamptz not null default now()
 );
 
-create table subtasks (
+create table forge.subtasks (
   id uuid primary key default gen_random_uuid(),
-  task_id uuid not null references tasks(id) on delete cascade,
+  task_id uuid not null references forge.tasks(id) on delete cascade,
   label text not null,
   done boolean not null default false,
   position integer not null default 0
@@ -36,16 +45,16 @@ create table subtasks (
 
 -- One row per snooze action, so the "откладывания по часам" chart
 -- and future stats can be computed from real history.
-create table snooze_events (
+create table forge.snooze_events (
   id uuid primary key default gen_random_uuid(),
-  task_id uuid not null references tasks(id) on delete cascade,
+  task_id uuid not null references forge.tasks(id) on delete cascade,
   occurred_at timestamptz not null default now()
 );
 
 -- Habits: a persistent recurring practice tracked by day, not a task that
 -- gets completed-and-respawned. One row per habit; completions are a
 -- separate per-day log so streaks/history are computed from real data.
-create table habits (
+create table forge.habits (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   icon text, -- a single emoji, shown instead of a photo avatar
@@ -57,44 +66,10 @@ create table habits (
   created_at timestamptz not null default now()
 );
 
-create table habit_completions (
+create table forge.habit_completions (
   id uuid primary key default gen_random_uuid(),
-  habit_id uuid not null references habits(id) on delete cascade,
+  habit_id uuid not null references forge.habits(id) on delete cascade,
   date date not null,
   count integer not null default 0,
   unique (habit_id, date)
 );
-
-alter table tasks enable row level security;
-alter table subtasks enable row level security;
-alter table snooze_events enable row level security;
-alter table habits enable row level security;
-alter table habit_completions enable row level security;
-
--- No auth yet: allow the anon (publishable) key full access.
--- Tighten this once per-user auth is added.
-create policy "anon full access" on tasks for all using (true) with check (true);
-create policy "anon full access" on subtasks for all using (true) with check (true);
-create policy "anon full access" on snooze_events for all using (true) with check (true);
-create policy "anon full access" on habits for all using (true) with check (true);
-create policy "anon full access" on habit_completions for all using (true) with check (true);
-
--- Seed with the same three example tasks currently shown as mock data.
-insert into tasks (kind, title, due_at, recurrence_note, reminder_count, snooze_count)
-values
-  ('task', 'Витамины', now() - interval '40 minutes', null, 5, 4),
-  ('task', 'Показания счётчика', date_trunc('day', now()) + interval '20 hours', 'ежемесячно 19-го', 0, 0);
-
-insert into tasks (kind, title, due_at)
-values ('goal', 'Запустить лендинг', now() + interval '8 days');
-
-with goal as (
-  select id from tasks where title = 'Запустить лендинг' order by created_at desc limit 1
-)
-insert into subtasks (task_id, label, done, position)
-select goal.id, v.label, v.done, v.position
-from goal, (values
-  ('Собрать структуру', true, 0),
-  ('Написать тексты', true, 1),
-  ('Свести на мобильном', false, 2)
-) as v(label, done, position);

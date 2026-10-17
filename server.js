@@ -1,7 +1,14 @@
 import 'dotenv/config';
 import express from 'express';
+import pg from 'pg';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+// pg's default DATE parser builds a JS Date at local-timezone midnight, which
+// shifts the calendar day by the server's UTC offset once serialized back to
+// JSON (e.g. '2026-08-31' -> '2026-08-30T21:00:00.000Z' at UTC+3). The app
+// only ever wants the plain 'YYYY-MM-DD' string, so skip Date parsing for it.
+pg.types.setTypeParser(1082, (val) => val);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -11,6 +18,15 @@ const DIST = join(__dirname, 'dist');
 const GROK_API_KEY = process.env.GROK_API_KEY;
 const GROK_MODEL = process.env.GROK_MODEL || 'grok-4-fast';
 const GROK_URL = 'https://api.x.ai/v1/chat/completions';
+
+// All Forge tables live in their own `forge` schema on a Postgres instance
+// shared with other apps (each in its own schema) — never touch `public` or
+// any other schema from here.
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : undefined,
+  max: 5,
+});
 
 app.use(express.json());
 
@@ -172,6 +188,208 @@ ${dueLine}
     console.error('gnome-message failed:', err.message);
     res.status(502).json({ error: err.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Data API (forge schema on Render Postgres) — replaces direct supabase-js
+// table access. Column lists below are allowlists for dynamic insert/patch
+// query building; names never come from the request itself, so there's no
+// injection surface even though the SQL text is assembled per-request.
+const TASK_COLUMNS = [
+  'kind', 'title', 'due_at', 'due_has_time', 'recurrence_note', 'repeat_type', 'repeat_days',
+  'times_per_day', 'repeat_end_type', 'repeat_end_date', 'repeat_occurrences_left',
+  'reminder_count', 'snooze_count', 'completed', 'completed_at',
+];
+const SUBTASK_COLUMNS = ['task_id', 'label', 'done', 'position'];
+const HABIT_COLUMNS = ['title', 'icon', 'color', 'target_days', 'times_per_day', 'archived'];
+
+function buildInsert(table, allowedCols, body) {
+  const cols = Object.keys(body).filter((k) => allowedCols.includes(k));
+  if (cols.length === 0) throw new Error('No valid fields to insert');
+  const colList = cols.map((c) => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
+  const values = cols.map((c) => body[c]);
+  return { text: `insert into forge.${table} (${colList}) values (${placeholders}) returning *`, values };
+}
+
+function buildPatch(table, allowedCols, id, body) {
+  const cols = Object.keys(body).filter((k) => allowedCols.includes(k));
+  if (cols.length === 0) throw new Error('No valid fields to update');
+  const setClause = cols.map((c, i) => `"${c}" = $${i + 2}`).join(', ');
+  const values = cols.map((c) => body[c]);
+  return { text: `update forge.${table} set ${setClause} where id = $1 returning *`, values: [id, ...values] };
+}
+
+// --- Tasks ---
+app.get('/api/tasks', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      select t.*,
+        (select coalesce(json_agg(sub order by sub.position), '[]'::json)
+           from forge.subtasks sub where sub.task_id = t.id) as subtasks
+      from forge.tasks t
+      where t.completed = false
+      order by t.created_at asc
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/tasks/archive', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'select * from forge.tasks where completed = true order by completed_at desc'
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/tasks/completed-stats', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'select completed_at, due_at, snooze_count from forge.tasks where completed = true'
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { text, values } = buildInsert('tasks', TASK_COLUMNS, req.body);
+    const { rows } = await pool.query(text, values);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/tasks/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('tasks', TASK_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.tasks where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tasks/delete-many', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (ids.length) await pool.query('delete from forge.tasks where id = any($1::uuid[])', [ids]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- Subtasks (also used for goal steps) ---
+app.get('/api/subtasks', async (req, res) => {
+  try {
+    const { task_id } = req.query;
+    if (!task_id) return res.status(400).json({ error: 'task_id is required' });
+    const { rows } = await pool.query(
+      'select * from forge.subtasks where task_id = $1 order by position', [task_id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/subtasks', async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+    const inserted = [];
+    for (const row of rows) {
+      const { text, values } = buildInsert('subtasks', SUBTASK_COLUMNS, row);
+      const { rows: r } = await pool.query(text, values);
+      inserted.push(r[0]);
+    }
+    res.json(inserted);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/subtasks/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('subtasks', SUBTASK_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Subtask not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.post('/api/subtasks/delete-many', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    if (ids.length) await pool.query('delete from forge.subtasks where id = any($1::uuid[])', [ids]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- Snooze events ---
+app.post('/api/snooze-events', async (req, res) => {
+  try {
+    await pool.query('insert into forge.snooze_events (task_id) values ($1)', [req.body.task_id]);
+    res.status(204).end();
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.get('/api/snooze-events', async (req, res) => {
+  try {
+    const { since } = req.query;
+    if (!since) return res.status(400).json({ error: 'since is required' });
+    const { rows } = await pool.query(
+      'select occurred_at from forge.snooze_events where occurred_at >= $1', [since]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- Habits ---
+app.get('/api/habits', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      select h.*,
+        (select coalesce(json_agg(hc), '[]'::json)
+           from forge.habit_completions hc where hc.habit_id = h.id) as habit_completions
+      from forge.habits h
+      where h.archived = false
+      order by h.created_at asc
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/habits', async (req, res) => {
+  try {
+    const { text, values } = buildInsert('habits', HABIT_COLUMNS, req.body);
+    const { rows } = await pool.query(text, values);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/habits/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('habits', HABIT_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Habit not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.put('/api/habits/:habitId/completions/:date', async (req, res) => {
+  try {
+    const { habitId, date } = req.params;
+    const { count } = req.body;
+    const { rows } = await pool.query(`
+      insert into forge.habit_completions (habit_id, date, count)
+      values ($1, $2, $3)
+      on conflict (habit_id, date) do update set count = excluded.count
+      returning *
+    `, [habitId, date, count]);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
 app.use(express.static(DIST));
