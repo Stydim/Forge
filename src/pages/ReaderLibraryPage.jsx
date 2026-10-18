@@ -175,7 +175,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
 
             {selected && (
               <article className="reader-book-card">
-                <span className="reader-eyebrow" style={{ color: selected.source_lang === 'ru' ? '#FF6A3D' : '#5CC8E0' }}>
+                <span className="reader-eyebrow" style={{ color: selected.source_lang === 'ru' ? 'var(--accent-teal-dark)' : 'var(--accent-amber)' }}>
                   {LANG_LABEL[selected.source_lang]} → {LANG_LABEL[selected.target_lang]}
                 </span>
                 <h3 className="reader-book-card-title">{selected.title}</h3>

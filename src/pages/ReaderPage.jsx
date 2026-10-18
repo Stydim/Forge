@@ -162,8 +162,8 @@ export default function ReaderPage({ onProgress, savedWords }) {
   const progress = book.paragraph_count ? Math.min(100, Math.round((pageStart / book.paragraph_count) * 100)) : 0;
   const leftLang = swapped ? book.target_lang : book.source_lang;
   const rightLang = swapped ? book.source_lang : book.target_lang;
-  const leftColor = leftLang === book.source_lang ? '#FF6A3D' : '#5CC8E0';
-  const rightColor = rightLang === book.source_lang ? '#FF6A3D' : '#5CC8E0';
+  const leftColor = leftLang === book.source_lang ? 'var(--accent-teal-dark)' : 'var(--accent-amber)';
+  const rightColor = rightLang === book.source_lang ? 'var(--accent-teal-dark)' : 'var(--accent-amber)';
 
   return (
     <div className="reader-page reader-reading">

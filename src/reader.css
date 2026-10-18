@@ -1,41 +1,38 @@
 /* ============================================
-   READER — self-contained dark design system,
-   scoped entirely under .reader-page so it never
-   leaks into the rest of Forge's light theme.
+   READER — uses Forge's own light design system
+   (same cards/borders/accents/background as every
+   other page) rather than a separate theme, so the
+   user's chosen Settings background shows through
+   here too, exactly like on Tasks/Habits/etc.
    ============================================ */
 
 .reader-page {
-  --r-bg: #111214;
-  --r-ink: #ECEAE4;
-  --r-ink-dim: #9A9EA8;
-  --r-ink-dimmer: #80858F;
-  --r-coral: #FF6A3D;
-  --r-cyan: #5CC8E0;
-  --r-panel: #1A1C20;
-  --r-panel-alt: #1C1E23;
-  --r-border: #2A2E36;
-  --r-border-soft: #24272D;
-  --r-chip: #2E323A;
+  /* Mapped onto Forge's real theme tokens (index.css) rather than inventing
+     a parallel palette — kept as their own names here only so every rule
+     below didn't need rewriting when this reader stopped being dark-themed. */
+  --r-ink: var(--text-primary);
+  --r-ink-dim: var(--text-secondary);
+  --r-ink-dimmer: var(--text-tertiary);
+  --r-accent: var(--accent-teal);
+  --r-accent-dark: var(--accent-teal-dark);
+  --r-accent-bg: var(--accent-teal-bg);
+  --r-accent2: var(--accent-amber);
+  --r-accent2-bg: var(--accent-amber-bg);
+  --r-card: var(--bg-card);
+  --r-chip: var(--bg-chip);
+  --r-border: var(--border-color);
+  --r-border-soft: var(--border-soft);
 
+  /* No background-color of our own — the shared page background (plain
+     cream, or the photo chosen in Settings) painted on .app-layout shows
+     through here too, same as every other page. */
   min-height: 100vh;
   padding: 32px;
-  background-color: var(--r-bg);
-  background-image: radial-gradient(rgba(236, 234, 228, 0.06) 1px, transparent 1px);
-  background-size: 22px 22px;
   color: var(--r-ink);
   font-family: 'Golos Text', system-ui, sans-serif;
 }
 
-/* No default color on `a`/`button` here: an element+class reset would
-   out-specify a plain class selector (e.g. .reader-deck-card { color:
-   #111214 }), silently making that text invisible against its own
-   background. Every link/button below sets its own color explicitly where
-   it needs one, and otherwise just inherits from its container — exactly
-   like Forge's own global button reset in index.css already does. */
 .reader-page button { font: inherit; }
-/* index.css sets a global `h1,h2,h3,h4{color:var(--text-primary)}` rule for
-   the light theme — this reader is a separate dark design system, so every
-   heading in it must inherit its own dark-theme ink instead. */
 .reader-page h1, .reader-page h2, .reader-page h3, .reader-page h4 { color: inherit; }
 
 .reader-h1 {
@@ -46,8 +43,8 @@
   line-height: 1;
   letter-spacing: -0.01em;
 }
-.reader-accent-coral { color: var(--r-coral); }
-.reader-accent-cyan { color: var(--r-cyan); }
+.reader-accent-coral { color: var(--r-accent); }
+.reader-accent-cyan { color: var(--r-accent2); }
 
 .reader-eyebrow {
   font-family: 'Unbounded', sans-serif;
@@ -68,11 +65,12 @@
 }
 .reader-subnav-link { color: var(--r-ink-dim); cursor: pointer; padding: 6px 0; }
 .reader-subnav-link:hover { color: var(--r-ink); }
-.reader-subnav-active { color: var(--r-coral); padding: 6px 0; }
+.reader-subnav-active { color: var(--r-accent-dark); padding: 6px 0; }
 
 .reader-error {
-  background: rgba(255, 106, 61, 0.12);
-  border: 1px solid rgba(255, 106, 61, 0.4);
+  background: var(--accent-red-bg);
+  border: 1px solid var(--accent-red-border);
+  color: var(--accent-red);
   border-radius: 14px;
   padding: 14px 18px;
   margin-bottom: 16px;
@@ -91,13 +89,15 @@
   gap: 10px;
   min-height: 48px;
   padding: 0 20px;
-  border: 1px solid #3A3F48;
-  background: transparent;
+  border: 1.5px solid var(--r-border);
+  background: var(--r-card);
+  color: var(--r-ink);
   border-radius: 24px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
 }
+.reader-btn-outline:hover { border-color: var(--text-tertiary); }
 .reader-btn-outline:disabled { opacity: 0.5; cursor: default; }
 .reader-btn-ghost {
   border: 0;
@@ -119,9 +119,9 @@
   font-weight: 600;
   font-size: 15px;
 }
-.reader-btn-coral { background: var(--r-coral); color: #111214; }
-.reader-btn-cyan { background: var(--r-cyan); color: #111214; }
-.reader-btn-cream { background: var(--r-ink); color: #111214; }
+.reader-btn-coral { background: var(--r-accent); color: var(--text-inverse); }
+.reader-btn-cyan { background: var(--r-accent2); color: var(--text-inverse); }
+.reader-btn-cream { background: var(--r-ink); color: var(--text-inverse); }
 
 /* ---------- Library page ---------- */
 .reader-library-head {
@@ -134,7 +134,7 @@
 }
 
 .reader-upload-prompt {
-  background: var(--r-panel);
+  background: var(--r-card);
   border: 1px solid var(--r-border);
   border-radius: 20px;
   padding: 18px 22px;
@@ -144,6 +144,7 @@
   align-items: center;
   gap: 16px;
   font-size: 15px;
+  box-shadow: var(--shadow-card);
 }
 .reader-upload-prompt-actions { display: flex; gap: 8px; }
 .reader-upload-status { color: var(--r-ink-dim); font-size: 13px; }
@@ -154,22 +155,24 @@
   border-radius: 28px;
   overflow: hidden;
   margin-bottom: 40px;
+  border: 1px solid var(--r-border);
+  box-shadow: var(--shadow-panel);
 }
 .reader-hero-cell { padding: 36px; display: flex; flex-direction: column; gap: 14px; min-height: 260px; box-sizing: border-box; }
-.reader-hero-coral { background: var(--r-coral); color: #111214; }
-.reader-hero-cyan { background: var(--r-cyan); color: #111214; }
-.reader-hero-coral .reader-eyebrow, .reader-hero-cyan .reader-eyebrow { color: rgba(17, 18, 20, 0.6); }
+.reader-hero-coral { background: var(--r-accent-bg); color: var(--r-ink); }
+.reader-hero-cyan { background: var(--r-accent2-bg); color: var(--r-ink); }
+.reader-hero-coral .reader-eyebrow { color: var(--r-accent-dark); }
+.reader-hero-cyan .reader-eyebrow { color: var(--r-accent2); }
 .reader-hero-title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2.6rem; line-height: 1; }
-.reader-hero-author { font-size: 15px; }
+.reader-hero-author { font-size: 15px; color: var(--r-ink-dim); }
 .reader-hero-cta {
   margin-top: auto; align-self: flex-start;
   min-height: 50px; padding: 0 22px; border: 0; border-radius: 25px;
-  background: #111214; color: var(--r-ink); cursor: pointer; font-weight: 600; font-size: 15px;
+  background: var(--r-accent); color: var(--text-inverse); cursor: pointer; font-weight: 600; font-size: 15px;
 }
-.reader-hero-progress-row { display: flex; justify-content: space-between; font-family: 'Unbounded', sans-serif; font-size: 12px; margin-top: auto; }
-.reader-progress-track { height: 8px; border-radius: 4px; background: rgba(17, 18, 20, 0.18); }
-.reader-hero-cell .reader-progress-track { background: rgba(17, 18, 20, 0.18); }
-.reader-progress-fill { height: 100%; border-radius: 4px; background: #111214; }
+.reader-hero-progress-row { display: flex; justify-content: space-between; font-family: 'Unbounded', sans-serif; font-size: 12px; margin-top: auto; color: var(--r-ink-dim); }
+.reader-progress-track { height: 8px; border-radius: 4px; background: var(--r-chip); }
+.reader-progress-fill { height: 100%; border-radius: 4px; background: var(--r-accent); }
 
 .reader-section-label {
   margin: 0;
@@ -180,9 +183,9 @@
 .reader-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .reader-filter-chip {
   min-height: 38px; padding: 0 16px; border-radius: 19px; cursor: pointer; font-size: 14px; font-weight: 500;
-  border: 1px solid #3A3F48; background: transparent; color: #C9CCD2;
+  border: 1.5px solid var(--r-border); background: var(--r-card); color: var(--r-ink-dim);
 }
-.reader-filter-chip.active { background: var(--r-ink); color: #111214; border-color: var(--r-ink); }
+.reader-filter-chip.active { background: var(--r-ink); color: var(--text-inverse); border-color: var(--r-ink); }
 
 .reader-shelf-row { display: flex; flex-wrap: wrap; gap: 32px; align-items: stretch; }
 .reader-shelf { flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; }
@@ -190,7 +193,7 @@
 .reader-spine {
   flex: 0 0 auto; border: 0; padding: 0; border-radius: 4px 4px 2px 2px; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-  box-shadow: inset -5px 0 0 rgba(0, 0, 0, 0.18); transition: transform 0.15s ease;
+  box-shadow: inset -5px 0 0 rgba(0, 0, 0, 0.18), 0 2px 6px rgba(60, 50, 20, 0.15); transition: transform 0.15s ease;
 }
 .reader-spine.selected { transform: translateY(-14px); }
 .reader-spine-band { width: 100%; height: 8px; background: rgba(0, 0, 0, 0.3); }
@@ -200,19 +203,18 @@
   white-space: nowrap; overflow: hidden; max-height: 70%;
 }
 .reader-spine-pair { font-family: 'Unbounded', sans-serif; font-size: 9px; letter-spacing: 0.08em; padding-bottom: 8px; }
-.reader-shelf-ledge { height: 12px; border-radius: 2px; background: #2A2E36; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45); margin-top: 2px; }
+.reader-shelf-ledge { height: 12px; border-radius: 2px; background: var(--border-color); box-shadow: var(--shadow-panel); margin-top: 2px; }
 
 .reader-book-card {
-  flex: 1 1 280px; background: var(--r-panel); border: 1px solid var(--r-border); border-radius: 24px;
-  padding: 26px; display: flex; flex-direction: column; gap: 12px;
+  flex: 1 1 280px; background: var(--r-card); border: 1px solid var(--r-border); border-radius: 24px;
+  padding: 26px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-card);
 }
 .reader-book-card-title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 1.6rem; line-height: 1.1; }
 .reader-book-card-author { font-size: 14px; color: var(--r-ink-dim); }
 .reader-book-card-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .reader-progress-row-small { display: flex; justify-content: space-between; font-size: 13px; color: var(--r-ink-dim); }
-.reader-book-card-foot .reader-progress-track { background: var(--r-chip); }
-.reader-book-card-foot .reader-progress-fill { background: var(--r-coral); }
-.reader-book-delete { justify-content: center; }
+.reader-book-delete { justify-content: center; color: var(--r-ink-dim); }
+.reader-book-delete:hover { color: var(--accent-red); }
 
 /* ---------- Reading page ---------- */
 .reader-reading-layout { display: flex; flex-wrap: wrap; gap: 36px; align-items: flex-start; }
@@ -222,7 +224,7 @@
 
 .reader-side-head {
   display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
-  padding-bottom: 14px; border-bottom: 1px solid var(--r-border-soft);
+  padding-bottom: 14px; border-bottom: 1px solid var(--r-border);
   font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
 }
 
@@ -232,65 +234,65 @@
   display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
   border-radius: 16px; cursor: pointer; padding: 4px 0;
 }
-.reader-para-row.active { background: rgba(236, 234, 228, 0.05); }
+.reader-para-row.active { background: var(--r-accent-bg); }
 .reader-para-text { padding: 18px 16px; font-family: 'Literata', Georgia, serif; line-height: 1.65; }
 .reader-para-num { position: relative; display: flex; justify-content: center; padding-top: 20px; }
 .reader-para-dot {
   width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
   font-family: 'Unbounded', sans-serif; font-size: 10px; font-weight: 600;
-  background: #111214; color: var(--r-ink-dim); border: 1px solid #3A3F48;
+  background: var(--r-card); color: var(--r-ink-dim); border: 1px solid var(--r-border);
 }
-.reader-para-row.active .reader-para-dot { background: var(--r-coral); color: #111214; border-color: var(--r-coral); }
+.reader-para-row.active .reader-para-dot { background: var(--r-accent); color: var(--text-inverse); border-color: var(--r-accent); }
 
 .reader-para-stack-row { display: grid; grid-template-columns: 40px minmax(0, 1fr); border-radius: 16px; cursor: pointer; padding: 4px 0; }
-.reader-para-stack-row.active { background: rgba(236, 234, 228, 0.05); }
+.reader-para-stack-row.active { background: var(--r-accent-bg); }
 .reader-para-num-inline { font-family: 'Unbounded', sans-serif; font-size: 10px; color: var(--r-ink-dimmer); padding-top: 22px; text-align: center; }
 .reader-para-stack-text { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 18px 4px; }
 .reader-para-original { margin: 0; font-family: 'Literata', Georgia, serif; line-height: 1.65; }
-.reader-para-translation { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.5; color: var(--r-cyan); }
+.reader-para-translation { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.5; color: var(--r-accent2); }
 
 .reader-word {
   border: 0; padding: 0 2px; margin: 0 -2px; border-radius: 4px; cursor: pointer;
   font: inherit; background: transparent; color: inherit;
-  text-decoration: underline; text-decoration-color: var(--r-coral); text-decoration-thickness: 2px; text-underline-offset: 4px;
+  text-decoration: underline; text-decoration-color: var(--r-accent); text-decoration-thickness: 2px; text-underline-offset: 4px;
 }
-.reader-word.active { background: var(--r-coral); color: #111214; text-decoration: none; }
+.reader-word.active { background: var(--r-accent); color: var(--text-inverse); text-decoration: none; }
 
 .reader-toolbar {
   position: sticky; bottom: 20px; margin: 40px auto 0; align-self: center;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px; background: var(--r-panel-alt); border: 1px solid #2E323A; border-radius: 22px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5); max-width: 100%;
+  padding: 8px; background: var(--r-card); border: 1px solid var(--r-border); border-radius: 22px;
+  box-shadow: var(--shadow-panel); max-width: 100%;
 }
 .reader-mode-group { display: flex; gap: 4px; }
-.reader-mode-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: #B4B8C0; }
-.reader-mode-btn.active { background: var(--r-ink); color: #111214; }
-.reader-toolbar-sep { width: 1px; height: 26px; background: #2E323A; }
+.reader-mode-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: var(--r-ink-dim); }
+.reader-mode-btn.active { background: var(--r-ink); color: var(--text-inverse); }
+.reader-toolbar-sep { width: 1px; height: 26px; background: var(--r-border); }
 .reader-swap-btn { min-height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.06em; }
-.reader-size-btn { width: 40px; height: 40px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; font-family: 'Playfair Display', Georgia, serif; }
-.reader-progress-badge { font-family: 'Unbounded', sans-serif; font-size: 12px; padding: 0 10px; color: var(--r-coral); }
+.reader-size-btn { width: 40px; height: 40px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; font-family: 'Playfair Display', Georgia, serif; color: var(--r-ink); }
+.reader-progress-badge { font-family: 'Unbounded', sans-serif; font-size: 12px; padding: 0 10px; color: var(--r-accent-dark); }
 .reader-nav-btn { width: 40px; height: 40px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--r-ink); }
 .reader-nav-btn:disabled { opacity: 0.3; cursor: default; }
 .reader-toolbar .reader-btn-solid { min-height: 40px; padding: 0 16px; font-size: 13px; }
 
 .reader-aside { flex: 1 1 300px; max-width: 100%; position: sticky; top: 32px; display: flex; flex-direction: column; gap: 18px; }
-.reader-gloss-panel { background: var(--r-panel); border: 1px solid var(--r-border); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 14px; min-height: 160px; }
+.reader-gloss-panel { background: var(--r-card); border: 1px solid var(--r-border); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 14px; min-height: 160px; box-shadow: var(--shadow-card); }
 .reader-gloss-empty { color: var(--r-ink-dim); font-size: 14px; }
 .reader-gloss-head { display: flex; justify-content: space-between; align-items: flex-start; }
-.reader-gloss-word { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2rem; line-height: 1.05; color: var(--r-coral); }
+.reader-gloss-word { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2rem; line-height: 1.05; color: var(--r-accent-dark); }
 .reader-gloss-close { border: 0; background: transparent; cursor: pointer; color: var(--r-ink-dim); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .reader-gloss-pos { font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.1em; color: var(--r-ink-dim); margin-top: -8px; }
-.reader-gloss-translation { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 20px; color: var(--r-cyan); }
-.reader-gloss-example { font-size: 13px; line-height: 1.5; color: #C9CCD2; display: flex; flex-direction: column; gap: 4px; }
-.reader-gloss-example-tr { color: var(--r-ink-dim); }
-.reader-save-btn { min-height: 46px; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 14px; border: 1px solid var(--r-coral); background: transparent; color: var(--r-coral); }
-.reader-save-btn.saved { background: var(--r-coral); color: #111214; }
+.reader-gloss-translation { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 20px; color: var(--r-accent2); }
+.reader-gloss-example { font-size: 13px; line-height: 1.5; color: var(--r-ink-dim); display: flex; flex-direction: column; gap: 4px; }
+.reader-gloss-example-tr { color: var(--r-ink-dimmer); }
+.reader-save-btn { min-height: 46px; border-radius: 14px; cursor: pointer; font-weight: 600; font-size: 14px; border: 1.5px solid var(--r-accent); background: transparent; color: var(--r-accent-dark); }
+.reader-save-btn.saved { background: var(--r-accent); color: var(--text-inverse); border-color: var(--r-accent); }
 
-.reader-deck-card { display: block; background: var(--r-cyan); color: #111214; border-radius: 22px; padding: 20px 22px; text-decoration: none; }
+.reader-deck-card { display: block; background: var(--r-accent2-bg); border: 1px solid var(--r-border); color: var(--r-ink); border-radius: 22px; padding: 20px 22px; text-decoration: none; }
 .reader-deck-card-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
-.reader-deck-card .reader-eyebrow { color: rgba(17, 18, 20, 0.6); }
+.reader-deck-card .reader-eyebrow { color: var(--r-accent2); }
 .reader-deck-count { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 1.8rem; }
-.reader-deck-cta { font-weight: 600; font-size: 14px; }
+.reader-deck-cta { font-weight: 600; font-size: 14px; color: var(--r-ink); }
 
 /* ---------- Flashcards page ---------- */
 .reader-cards-empty { color: var(--r-ink-dim); font-size: 15px; padding: 24px 0; }
@@ -298,14 +300,14 @@
 .reader-flashcard-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; max-width: 540px; margin: 20px 0 32px; }
 .reader-flashcard-progress { font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--r-ink-dim); }
 .reader-flashcard {
-  width: 100%; min-height: 260px; border: 1px solid var(--r-border); border-radius: 28px; background: var(--r-panel);
+  width: 100%; min-height: 260px; border: 1px solid var(--r-border); border-radius: 28px; background: var(--r-card);
   cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  padding: 40px; text-align: center;
+  padding: 40px; text-align: center; box-shadow: var(--shadow-card);
 }
 .reader-flashcard-pos { font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--r-ink-dim); }
-.reader-flashcard-word { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2.6rem; color: var(--r-coral); line-height: 1.1; }
-.reader-flashcard-example { display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: #C9CCD2; }
-.reader-flashcard-example em { color: var(--r-cyan); font-style: italic; }
+.reader-flashcard-word { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2.6rem; color: var(--r-accent-dark); line-height: 1.1; }
+.reader-flashcard-example { display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--r-ink-dim); }
+.reader-flashcard-example em { color: var(--r-accent2); font-style: italic; }
 .reader-flashcard-hint { font-size: 13px; color: var(--r-ink-dimmer); }
 .reader-flashcard-actions { display: flex; gap: 12px; }
 .reader-deck-toggle { margin: 8px 0 16px; }
@@ -316,9 +318,9 @@
 .reader-deck-row-tr { font-size: 13px; color: var(--r-ink-dim); }
 .reader-deck-row-bars { display: flex; gap: 3px; }
 .reader-deck-bar { width: 12px; height: 6px; border-radius: 3px; background: var(--r-chip); }
-.reader-deck-bar.filled { background: var(--r-cyan); }
+.reader-deck-bar.filled { background: var(--r-accent2); }
 .reader-deck-row-delete { border: 0; background: transparent; cursor: pointer; color: var(--r-ink-dimmer); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
-.reader-deck-row-delete:hover { color: var(--r-coral); }
+.reader-deck-row-delete:hover { color: var(--accent-red); }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 768px) {
