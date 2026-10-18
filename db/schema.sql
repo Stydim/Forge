@@ -73,3 +73,64 @@ create table forge.habit_completions (
   count integer not null default 0,
   unique (habit_id, date)
 );
+
+-- Reader: bilingual RU<->EN book reading with on-demand Grok translation
+-- (cached per paragraph) and AI word glosses (cached per word+language pair).
+create table forge.books (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  author text,
+  source_lang text not null check (source_lang in ('ru', 'en')),
+  target_lang text not null check (target_lang in ('ru', 'en')),
+  format text not null check (format in ('txt', 'epub', 'fb2')),
+  spine_color text not null default '#5CC8E0',
+  paragraph_count integer not null default 0,
+  -- Last-read position (paragraph index) — doubles as the resume point and
+  -- the progress-bar numerator.
+  current_paragraph integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table forge.book_paragraphs (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references forge.books(id) on delete cascade,
+  position integer not null,
+  text text not null,
+  translation text,
+  translated_at timestamptz,
+  unique (book_id, position)
+);
+
+-- Dictionary cache: AI word lookups are reusable across books, so cache by
+-- the exact tapped surface form + language pair rather than per-book.
+create table forge.word_glosses (
+  id uuid primary key default gen_random_uuid(),
+  word text not null,
+  source_lang text not null check (source_lang in ('ru', 'en')),
+  target_lang text not null check (target_lang in ('ru', 'en')),
+  base_form text not null,
+  part_of_speech text,
+  translation text not null,
+  example_source text,
+  example_translation text,
+  created_at timestamptz not null default now(),
+  unique (word, source_lang, target_lang)
+);
+
+-- The user's personal deck. familiarity doubles as the Leitner box index
+-- (0..5) driving both the familiarity bars and the SRS review interval.
+create table forge.saved_words (
+  id uuid primary key default gen_random_uuid(),
+  word text not null,
+  base_form text not null,
+  source_lang text not null check (source_lang in ('ru', 'en')),
+  translation text not null,
+  part_of_speech text,
+  example_source text,
+  example_translation text,
+  book_id uuid references forge.books(id) on delete set null,
+  familiarity integer not null default 0 check (familiarity between 0 and 5),
+  review_count integer not null default 0,
+  next_review_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);

@@ -9,9 +9,14 @@ import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
 import SettingsPage from './pages/SettingsPage';
+import ReaderLibraryPage from './pages/ReaderLibraryPage';
+import ReaderPage from './pages/ReaderPage';
+import FlashcardsPage from './pages/FlashcardsPage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
 import { useHabits } from './hooks/useHabits';
+import { useBooks } from './hooks/useBooks';
+import { useSavedWords } from './hooks/useSavedWords';
 import { useActiveCharacter } from './hooks/useActiveCharacter';
 import { useBackground } from './hooks/useBackground';
 import { getBackground } from './lib/backgrounds';
@@ -21,6 +26,8 @@ const SELECTED_TASK_KEY = 'forge:selected-task-id';
 export default function App() {
   const tasks = useTasks();
   const habits = useHabits();
+  const books = useBooks();
+  const savedWords = useSavedWords();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
@@ -132,6 +139,20 @@ export default function App() {
             }
           />
           <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
+          <Route
+            path="/reader"
+            element={(
+              <ReaderLibraryPage
+                books={books.books}
+                loading={books.loading}
+                error={books.error}
+                onUpload={books.upload}
+                onDelete={books.removeBook}
+              />
+            )}
+          />
+          <Route path="/reader/book/:bookId" element={<ReaderPage onProgress={books.setProgress} savedWords={savedWords} />} />
+          <Route path="/reader/cards" element={<FlashcardsPage savedWords={savedWords} />} />
           <Route
             path="/settings"
             element={<SettingsPage backgroundId={backgroundId} onSelectBackground={setBackgroundId} />}

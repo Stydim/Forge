@@ -73,3 +73,34 @@ export const updateHabit = (id, fields) => request(`/habits/${id}`, { method: 'P
 export const upsertHabitCompletion = (habitId, dateKey, count) => (
   request(`/habits/${habitId}/completions/${dateKey}`, { method: 'PUT', body: json({ count }) })
 );
+
+// Reader: books
+export const listBooks = () => request('/books');
+export const getBook = (id) => request(`/books/${id}`);
+export const deleteBook = (id) => request(`/books/${id}`, { method: 'DELETE' });
+export const updateBook = (id, fields) => request(`/books/${id}`, { method: 'PATCH', body: json(fields) });
+export const getBookParagraphs = (id, from, count) => request(`/books/${id}/paragraphs?from=${from}&count=${count}`);
+
+export async function uploadBook({ file, sourceLang, title, author }) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('source_lang', sourceLang);
+  if (title) form.append('title', title);
+  if (author) form.append('author', author);
+  const res = await fetch(`${BASE}/books`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// Reader: word gloss + deck (SRS)
+export const glossWord = (word, context, sourceLang, targetLang) => (
+  request('/words/gloss', { method: 'POST', body: json({ word, context, source_lang: sourceLang, target_lang: targetLang }) })
+);
+export const listSavedWords = () => request('/saved-words');
+export const listDueWords = () => request('/saved-words/due');
+export const saveWord = (fields) => request('/saved-words', { method: 'POST', body: json(fields) });
+export const reviewWord = (id, grade) => request(`/saved-words/${id}/review`, { method: 'PATCH', body: json({ grade }) });
+export const deleteSavedWord = (id) => request(`/saved-words/${id}`, { method: 'DELETE' });

@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import pg from 'pg';
+import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { parseBookFile } from './server/bookParsers.js';
 
 // pg's default DATE parser builds a JS Date at local-timezone midnight, which
 // shifts the calendar day by the server's UTC offset once serialized back to
@@ -28,6 +30,8 @@ const pool = new pg.Pool({
   max: 5,
 });
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
 app.use(express.json());
 
 // Grok sometimes wraps JSON in prose or a ```json fence even when asked for
@@ -49,7 +53,7 @@ function extractJson(text) {
   }
 }
 
-async function callGrok(messages, { maxTokens = 250 } = {}) {
+async function callGrok(messages, { maxTokens = 250, timeoutMs = 15000 } = {}) {
   if (!GROK_API_KEY) throw new Error('GROK_API_KEY is not configured on the server');
 
   const res = await fetch(GROK_URL, {
@@ -65,7 +69,7 @@ async function callGrok(messages, { maxTokens = 250 } = {}) {
       temperature: 0.9,
       response_format: { type: 'json_object' },
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!res.ok) {
@@ -77,6 +81,45 @@ async function callGrok(messages, { maxTokens = 250 } = {}) {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error('Grok response had no content');
   return extractJson(content);
+}
+
+// Reader feature: bilingual RU<->EN book reading with on-demand Grok
+// translation (lazy, only what's actually read) and per-word AI glosses.
+const LANG_NAMES_FROM = { ru: 'русского', en: 'английского' };
+const LANG_NAMES_TO = { ru: 'русский', en: 'английский' };
+
+async function translateParagraphs(paragraphs, sourceLang, targetLang) {
+  const numbered = paragraphs.map((p, i) => `${i + 1}. ${p}`).join('\n');
+  const parsed = await callGrok([
+    {
+      role: 'system',
+      content: `Ты профессиональный литературный переводчик. Переведи пронумерованные абзацы книги с ${LANG_NAMES_FROM[sourceLang]} языка на ${LANG_NAMES_TO[targetLang]} язык, сохраняя стиль, тон и смысл оригинала как можно точнее.
+Ответь СТРОГО JSON без пояснений и без markdown-разметки: {"translations": [string, ...]} — ровно ${paragraphs.length} элемент(ов) в том же порядке, без номеров внутри самого текста перевода.`,
+    },
+    { role: 'user', content: numbered },
+  ], { maxTokens: Math.min(6000, paragraphs.length * 250 + 200), timeoutMs: 45000 });
+
+  const translations = Array.isArray(parsed.translations) ? parsed.translations : [];
+  if (translations.length !== paragraphs.length) {
+    throw new Error(`Grok translation count mismatch: expected ${paragraphs.length}, got ${translations.length}`);
+  }
+  return translations;
+}
+
+async function glossWord(word, context, sourceLang, targetLang) {
+  const parsed = await callGrok([
+    {
+      role: 'system',
+      content: `Ты даёшь краткую словарную справку по слову из текста на ${LANG_NAMES_FROM[sourceLang]} языке для человека, который изучает этот язык. Слово дано в контексте предложения — определи его начальную форму (лемму), часть речи, точный перевод на ${LANG_NAMES_TO[targetLang]} язык именно в этом контексте, и короткий учебный пример: одно отдельное предложение на исходном языке с переводом.
+Ответь СТРОГО JSON без пояснений и без markdown-разметки:
+{"base_form": string, "part_of_speech": string, "translation": string, "example_source": string, "example_translation": string}
+"part_of_speech" — кратко в стиле словаря (например "сущ. · ж. р.", "гл. · несов. в.", "noun", "verb").`,
+    },
+    { role: 'user', content: `Слово: «${word}». Предложение из текста: «${context}».` },
+  ], { maxTokens: 300 });
+
+  if (!parsed.base_form || !parsed.translation) throw new Error('Grok не вернул перевод слова');
+  return parsed;
 }
 
 const REPEAT_TYPES = new Set(['none', 'daily', 'weekly', 'weekdays', 'weekends', 'monthly', 'yearly', 'custom_days']);
@@ -390,6 +433,212 @@ app.put('/api/habits/:habitId/completions/:date', async (req, res) => {
     `, [habitId, date, count]);
     res.json(rows[0]);
   } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// --- Reader: books ---
+const BOOK_FORMATS = new Set(['epub', 'fb2', 'txt']);
+const SPINE_COLORS = ['#FF6A3D', '#5CC8E0', '#ECEAE4', '#2C3140', '#B8432A', '#3A6F7B', '#1F2228', '#D9D3C4'];
+const BOOK_COLUMNS = ['title', 'author', 'current_paragraph'];
+
+app.post('/api/books', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Файл не передан' });
+    const sourceLang = req.body.source_lang === 'en' ? 'en' : 'ru';
+    const targetLang = sourceLang === 'ru' ? 'en' : 'ru';
+
+    const name = req.file.originalname || '';
+    const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+    if (!BOOK_FORMATS.has(ext)) return res.status(400).json({ error: 'Поддерживаются только TXT, EPUB и FB2' });
+
+    const parsed = await parseBookFile(req.file.buffer, ext);
+    const title = (req.body.title || parsed.title || name.replace(/\.[^.]+$/, '') || 'Без названия').trim();
+    const author = (req.body.author || parsed.author || '').trim() || null;
+    const spineColor = SPINE_COLORS[Math.floor(Math.random() * SPINE_COLORS.length)];
+
+    const { rows } = await pool.query(
+      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count)
+       values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+      [title, author, sourceLang, targetLang, ext, spineColor, parsed.paragraphs.length]
+    );
+    const book = rows[0];
+
+    // Chunked insert keeps this well under Postgres' bind-parameter limit
+    // regardless of how long the book is.
+    const CHUNK = 500;
+    for (let i = 0; i < parsed.paragraphs.length; i += CHUNK) {
+      const chunk = parsed.paragraphs.slice(i, i + CHUNK);
+      const values = [];
+      const placeholders = chunk.map((text, j) => {
+        values.push(book.id, i + j, text);
+        return `($${j * 3 + 1}, $${j * 3 + 2}, $${j * 3 + 3})`;
+      }).join(', ');
+      await pool.query(`insert into forge.book_paragraphs (book_id, position, text) values ${placeholders}`, values);
+    }
+
+    res.json(book);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.get('/api/books', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.books order by created_at desc');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/books/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.books where id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Книга не найдена' });
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/books/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('books', BOOK_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Книга не найдена' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/books/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.books where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Serves a page of paragraphs, translating (and caching) any that haven't
+// been read yet in one batched Grok call — so cost/latency only hits what's
+// actually opened, not the whole book at upload time.
+app.get('/api/books/:id/paragraphs', async (req, res) => {
+  try {
+    const bookRes = await pool.query('select * from forge.books where id = $1', [req.params.id]);
+    if (!bookRes.rows.length) return res.status(404).json({ error: 'Книга не найдена' });
+    const book = bookRes.rows[0];
+
+    const from = Math.max(0, parseInt(req.query.from, 10) || 0);
+    const count = Math.min(50, Math.max(1, parseInt(req.query.count, 10) || 20));
+
+    const { rows } = await pool.query(
+      'select * from forge.book_paragraphs where book_id = $1 and position >= $2 and position < $3 order by position',
+      [book.id, from, from + count]
+    );
+
+    const missing = rows.filter((r) => r.translation == null);
+    if (missing.length > 0) {
+      try {
+        const translations = await translateParagraphs(missing.map((r) => r.text), book.source_lang, book.target_lang);
+        for (let i = 0; i < missing.length; i++) {
+          const updated = await pool.query(
+            'update forge.book_paragraphs set translation = $1, translated_at = now() where id = $2 returning *',
+            [translations[i], missing[i].id]
+          );
+          rows[rows.findIndex((r) => r.id === missing[i].id)] = updated.rows[0];
+        }
+      } catch (err) {
+        console.error('translateParagraphs failed:', err.message);
+        // Serve the original text untranslated rather than failing the page.
+      }
+    }
+
+    res.json({ book, paragraphs: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Reader: word gloss (cached AI dictionary lookups) ---
+app.post('/api/words/gloss', async (req, res) => {
+  try {
+    const { word, context, source_lang, target_lang } = req.body || {};
+    if (!word || !source_lang || !target_lang) {
+      return res.status(400).json({ error: 'word, source_lang и target_lang обязательны' });
+    }
+    const normalized = word.trim();
+
+    const cached = await pool.query(
+      'select * from forge.word_glosses where word = $1 and source_lang = $2 and target_lang = $3',
+      [normalized, source_lang, target_lang]
+    );
+    if (cached.rows.length) return res.json(cached.rows[0]);
+
+    const gloss = await glossWord(normalized, context || '', source_lang, target_lang);
+    const { rows } = await pool.query(`
+      insert into forge.word_glosses (word, source_lang, target_lang, base_form, part_of_speech, translation, example_source, example_translation)
+      values ($1,$2,$3,$4,$5,$6,$7,$8)
+      on conflict (word, source_lang, target_lang) do update set base_form = excluded.base_form
+      returning *
+    `, [
+      normalized, source_lang, target_lang, gloss.base_form,
+      gloss.part_of_speech || null, gloss.translation,
+      gloss.example_source || null, gloss.example_translation || null,
+    ]);
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// --- Reader: saved-words deck (Leitner-box SRS) ---
+const LEITNER_INTERVAL_DAYS = [0, 1, 3, 7, 16, 35];
+
+app.post('/api/saved-words', async (req, res) => {
+  try {
+    const { word, base_form, source_lang, translation, part_of_speech, example_source, example_translation, book_id } = req.body || {};
+    if (!word || !base_form || !source_lang || !translation) {
+      return res.status(400).json({ error: 'Не хватает полей для сохранения слова' });
+    }
+    const { rows } = await pool.query(`
+      insert into forge.saved_words (word, base_form, source_lang, translation, part_of_speech, example_source, example_translation, book_id)
+      values ($1,$2,$3,$4,$5,$6,$7,$8) returning *
+    `, [word, base_form, source_lang, translation, part_of_speech || null, example_source || null, example_translation || null, book_id || null]);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.get('/api/saved-words', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.saved_words order by created_at desc');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/saved-words/due', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'select * from forge.saved_words where next_review_at <= now() order by next_review_at asc'
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/saved-words/:id/review', async (req, res) => {
+  try {
+    const grade = req.body?.grade === 'good' ? 'good' : 'again';
+    const current = await pool.query('select * from forge.saved_words where id = $1', [req.params.id]);
+    if (!current.rows.length) return res.status(404).json({ error: 'Слово не найдено' });
+    const box = grade === 'good' ? Math.min(current.rows[0].familiarity + 1, 5) : 0;
+    const days = LEITNER_INTERVAL_DAYS[box];
+    const { rows } = await pool.query(`
+      update forge.saved_words
+      set familiarity = $1, review_count = review_count + 1, next_review_at = now() + ($2 || ' days')::interval
+      where id = $3
+      returning *
+    `, [box, days, req.params.id]);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/saved-words/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.saved_words where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.use(express.static(DIST));
