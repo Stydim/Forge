@@ -11,6 +11,7 @@ import ArchivePage from './pages/ArchivePage';
 import SettingsPage from './pages/SettingsPage';
 import ReaderLibraryPage from './pages/ReaderLibraryPage';
 import ReaderPage from './pages/ReaderPage';
+import ReaderPastePage from './pages/ReaderPastePage';
 import FlashcardsPage from './pages/FlashcardsPage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
@@ -152,6 +153,8 @@ export default function App() {
             )}
           />
           <Route path="/reader/book/:bookId" element={<ReaderPage onProgress={books.setProgress} savedWords={savedWords} />} />
+          <Route path="/reader/new" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} />} />
+          <Route path="/reader/paste/:bookId" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} />} />
           <Route path="/reader/cards" element={<FlashcardsPage savedWords={savedWords} />} />
           <Route
             path="/settings"

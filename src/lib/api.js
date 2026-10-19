@@ -80,6 +80,8 @@ export const getBook = (id) => request(`/books/${id}`);
 export const deleteBook = (id) => request(`/books/${id}`, { method: 'DELETE' });
 export const updateBook = (id, fields) => request(`/books/${id}`, { method: 'PATCH', body: json(fields) });
 export const getBookParagraphs = (id, from, count) => request(`/books/${id}/paragraphs?from=${from}&count=${count}`);
+export const createTextBook = ({ title, text }) => request('/books/text', { method: 'POST', body: json({ title, text }) });
+export const appendBookText = (id, text) => request(`/books/${id}/text`, { method: 'POST', body: json({ text }) });
 
 export async function uploadBook({ file, sourceLang, title, author }) {
   const form = new FormData();

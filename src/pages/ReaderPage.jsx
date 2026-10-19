@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowLeftRight, X } from 'lucide-react';
 import * as api from '../lib/api';
+import { useReaderSettings } from '../lib/readerSettings';
+import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
 
-const PAGE_SIZE = 15;
-const MIN_SIZE = 15;
-const MAX_SIZE = 26;
+// The spread shows original and translation as two separate pages side by
+// side, so it gets half as many paragraphs per page as the stacked modes.
+const PAGE_SIZE_STACK = 15;
+const PAGE_SIZE_SIDE = 8;
 const MODES = [['side', 'Разворот'], ['inter', 'Строка под строкой'], ['orig', 'Оригинал']];
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 
@@ -25,7 +28,7 @@ function splitWords(text) {
   return parts;
 }
 
-function TappableText({ text, fontSize, onWordTap, activeWord }) {
+function TappableText({ text, onWordTap, activeWord }) {
   const parts = useMemo(() => splitWords(text), [text]);
   return (
     <>
@@ -34,7 +37,6 @@ function TappableText({ text, fontSize, onWordTap, activeWord }) {
           key={i}
           type="button"
           className={`reader-word${activeWord && activeWord.toLowerCase() === p.text.toLowerCase() ? ' active' : ''}`}
-          style={{ fontSize }}
           onClick={(e) => { e.stopPropagation(); onWordTap(p.text); }}
         >
           {p.text}
@@ -58,16 +60,17 @@ export default function ReaderPage({ onProgress, savedWords }) {
 
   const [mode, setMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'inter' : 'side'));
   const [swapped, setSwapped] = useState(false);
-  const [fontSize, setFontSize] = useState(19);
+  const { settings, update: updateSettings, reset: resetSettings, origStyle, trStyle } = useReaderSettings();
+  const pageSize = mode === 'side' ? PAGE_SIZE_SIDE : PAGE_SIZE_STACK;
   const [activeIdx, setActiveIdx] = useState(0);
 
   const [gloss, setGloss] = useState(null); // { word, context, data, loading, error }
 
-  const loadPage = useCallback(async (start) => {
+  const loadPage = useCallback(async (start, size) => {
     setPageLoading(true);
     setPageError(null);
     try {
-      const data = await api.getBookParagraphs(bookId, start, PAGE_SIZE);
+      const data = await api.getBookParagraphs(bookId, start, size);
       setBook(data.book);
       setParagraphs(data.paragraphs);
       setActiveIdx(0);
@@ -86,7 +89,7 @@ export default function ReaderPage({ onProgress, savedWords }) {
         if (cancelled) return;
         const start = Math.min(b.current_paragraph, Math.max(0, b.paragraph_count - 1));
         setPageStart(start);
-        loadPage(start);
+        loadPage(start, pageSize);
       } catch (err) {
         if (!cancelled) setPageError(err.message);
       }
@@ -95,21 +98,31 @@ export default function ReaderPage({ onProgress, savedWords }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
+  // Switching between spread and stacked modes changes the page size, so
+  // re-fetch the current page at the new size (translations are cached).
+  const loadedSizeRef = useRef(pageSize);
+  useEffect(() => {
+    if (loadedSizeRef.current === pageSize) return;
+    loadedSizeRef.current = pageSize;
+    if (book) loadPage(pageStart, pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize]);
+
   const isLastPage = book && pageStart + paragraphs.length >= book.paragraph_count;
   const isFirstPage = pageStart <= 0;
 
   const goNext = () => {
     if (!book) return;
-    const next = Math.min(pageStart + PAGE_SIZE, Math.max(0, book.paragraph_count - 1));
+    const next = Math.min(pageStart + pageSize, Math.max(0, book.paragraph_count - 1));
     setPageStart(next);
     onProgress(bookId, next);
-    loadPage(next);
+    loadPage(next, pageSize);
   };
   const goPrev = () => {
-    const prev = Math.max(0, pageStart - PAGE_SIZE);
+    const prev = Math.max(0, pageStart - pageSize);
     setPageStart(prev);
     onProgress(bookId, prev);
-    loadPage(prev);
+    loadPage(prev, pageSize);
   };
   const finishBook = () => {
     if (!book) return;
@@ -182,57 +195,56 @@ export default function ReaderPage({ onProgress, savedWords }) {
           {pageLoading && <div className="reader-translating">Переводим абзацы…</div>}
           {pageError && <div className="reader-error">{pageError}</div>}
 
-          {mode === 'side' && (
-            <div className="reader-side-head">
-              <span style={{ color: leftColor }}>{LANG_LABEL[leftLang]}</span>
-              <span />
-              <span style={{ color: rightColor }}>{LANG_LABEL[rightLang]}</span>
-            </div>
-          )}
-
-          <div className={`reader-paragraphs${mode === 'side' ? ' side' : ' stack'}`}>
-            {paragraphs.map((p, i) => {
-              const on = i === activeIdx;
-              const original = p.text;
-              const translation = p.translation ?? '…';
-              const left = swapped ? translation : original;
-              const right = swapped ? original : translation;
-              const leftIsOriginal = !swapped;
-              const showTranslation = mode === 'inter' || on;
-
-              if (mode === 'side') {
+          {mode === 'side' ? (
+            <div className="reader-spread">
+              <div className="reader-spread-sheet left" aria-hidden="true" />
+              <div className="reader-spread-sheet right" aria-hidden="true" />
+              <div className="reader-side-head">
+                <span style={{ color: leftColor }}>{LANG_LABEL[leftLang]}</span>
+                <span />
+                <span style={{ color: rightColor }}>{LANG_LABEL[rightLang]}</span>
+              </div>
+              {paragraphs.map((p, i) => {
+                const on = i === activeIdx;
+                const original = p.text;
+                const translation = p.translation ?? '…';
+                const tappable = (
+                  <TappableText text={original} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
+                );
+                const origCell = <span className="reader-para-text" style={origStyle}>{tappable}</span>;
+                const trCell = <span className="reader-para-text reader-para-text-tr" style={trStyle}>{translation}</span>;
                 return (
                   <div key={p.id} className={`reader-para-row${on ? ' active' : ''}`} onClick={() => setActiveIdx(i)}>
-                    <span className="reader-para-text" style={{ fontSize }}>
-                      {leftIsOriginal
-                        ? <TappableText text={left} fontSize={fontSize} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
-                        : left}
-                    </span>
+                    {swapped ? trCell : origCell}
                     <span className="reader-para-num">
                       <span className="reader-para-dot">{String(p.position + 1).padStart(2, '0')}</span>
                     </span>
-                    <span className="reader-para-text" style={{ fontSize }}>
-                      {!leftIsOriginal
-                        ? <TappableText text={right} fontSize={fontSize} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
-                        : right}
-                    </span>
+                    {swapped ? origCell : trCell}
                   </div>
                 );
-              }
-
-              return (
-                <div key={p.id} className={`reader-para-stack-row${on ? ' active' : ''}`} onClick={() => setActiveIdx(i)}>
-                  <span className="reader-para-num-inline">{String(p.position + 1).padStart(2, '0')}</span>
-                  <div className="reader-para-stack-text">
-                    <p className="reader-para-original" style={{ fontSize }}>
-                      <TappableText text={original} fontSize={fontSize} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
-                    </p>
-                    {showTranslation && <p className="reader-para-translation">{translation}</p>}
+              })}
+            </div>
+          ) : (
+            <div className="reader-paragraphs stack">
+              {paragraphs.map((p, i) => {
+                const on = i === activeIdx;
+                const original = p.text;
+                const translation = p.translation ?? '…';
+                const showTranslation = mode === 'inter' || on;
+                return (
+                  <div key={p.id} className={`reader-para-stack-row${on ? ' active' : ''}`} onClick={() => setActiveIdx(i)}>
+                    <span className="reader-para-num-inline">{String(p.position + 1).padStart(2, '0')}</span>
+                    <div className="reader-para-stack-text">
+                      <p className="reader-para-original" style={origStyle}>
+                        <TappableText text={original} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
+                      </p>
+                      {showTranslation && <p className="reader-para-translation" style={trStyle}>{translation}</p>}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="reader-toolbar">
             <div className="reader-mode-group" role="group" aria-label="Режим чтения">
@@ -249,8 +261,7 @@ export default function ReaderPage({ onProgress, savedWords }) {
               <span style={{ color: rightColor }}>{LANG_LABEL[rightLang]}</span>
             </button>
             <span className="reader-toolbar-sep" />
-            <button type="button" className="reader-size-btn" style={{ fontSize: 14 }} onClick={() => setFontSize((s) => Math.max(MIN_SIZE, s - 1))} aria-label="Уменьшить шрифт">A</button>
-            <button type="button" className="reader-size-btn" style={{ fontSize: 20 }} onClick={() => setFontSize((s) => Math.min(MAX_SIZE, s + 1))} aria-label="Увеличить шрифт">A</button>
+            <ReaderSettingsPanel settings={settings} update={updateSettings} reset={resetSettings} />
             <span className="reader-toolbar-sep" />
             <div className="reader-progress-badge">{progress}%</div>
             <span className="reader-toolbar-sep" />

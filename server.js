@@ -461,21 +461,119 @@ app.post('/api/books', upload.single('file'), async (req, res) => {
       [title, author, sourceLang, targetLang, ext, spineColor, parsed.paragraphs.length]
     );
     const book = rows[0];
-
-    // Chunked insert keeps this well under Postgres' bind-parameter limit
-    // regardless of how long the book is.
-    const CHUNK = 500;
-    for (let i = 0; i < parsed.paragraphs.length; i += CHUNK) {
-      const chunk = parsed.paragraphs.slice(i, i + CHUNK);
-      const values = [];
-      const placeholders = chunk.map((text, j) => {
-        values.push(book.id, i + j, text);
-        return `($${j * 3 + 1}, $${j * 3 + 2}, $${j * 3 + 3})`;
-      }).join(', ');
-      await pool.query(`insert into forge.book_paragraphs (book_id, position, text) values ${placeholders}`, values);
-    }
-
+    await insertParagraphs(book.id, 0, parsed.paragraphs);
     res.json(book);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Chunked insert keeps this well under Postgres' bind-parameter limit
+// regardless of how long the book is. Returns the inserted rows in order.
+async function insertParagraphs(bookId, startPosition, paragraphs) {
+  const CHUNK = 500;
+  const inserted = [];
+  for (let i = 0; i < paragraphs.length; i += CHUNK) {
+    const chunk = paragraphs.slice(i, i + CHUNK);
+    const values = [];
+    const placeholders = chunk.map((text, j) => {
+      values.push(bookId, startPosition + i + j, text);
+      return `($${j * 3 + 1}, $${j * 3 + 2}, $${j * 3 + 3})`;
+    }).join(', ');
+    const { rows } = await pool.query(
+      `insert into forge.book_paragraphs (book_id, position, text) values ${placeholders} returning *`,
+      values
+    );
+    inserted.push(...rows.sort((a, b) => a.position - b.position));
+  }
+  return inserted;
+}
+
+// --- Reader: pasted-text "books" ---
+// A user can start an empty book, paste text into it and get the translation
+// right away. Pasted text is short, so unlike uploaded files it's translated
+// eagerly (in page-sized batches) instead of lazily on read.
+const PASTE_MAX_CHARS = 30000;
+
+// Text copied from a web page usually has one paragraph per line; text with
+// blank lines between paragraphs is often hard-wrapped inside them, so in
+// that case blank lines are the paragraph breaks and inner newlines are joined.
+function splitPastedText(text) {
+  const normalized = text.replace(/\r\n?/g, '\n').trim();
+  const blocks = /\n\s*\n/.test(normalized) ? normalized.split(/\n\s*\n/) : normalized.split('\n');
+  return blocks.map((b) => b.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+function detectLang(text) {
+  const cyr = (text.match(/[А-Яа-яЁё]/g) || []).length;
+  const lat = (text.match(/[A-Za-z]/g) || []).length;
+  return cyr >= lat ? 'ru' : 'en';
+}
+
+async function translateAndStore(rows, sourceLang, targetLang) {
+  const BATCH = 15;
+  const result = [...rows];
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+    try {
+      const translations = await translateParagraphs(batch.map((r) => r.text), sourceLang, targetLang);
+      for (let j = 0; j < batch.length; j++) {
+        const updated = await pool.query(
+          'update forge.book_paragraphs set translation = $1, translated_at = now() where id = $2 returning *',
+          [translations[j], batch[j].id]
+        );
+        result[i + j] = updated.rows[0];
+      }
+    } catch (err) {
+      // Left untranslated — the reader translates it lazily on open anyway.
+      console.error('translateParagraphs (paste) failed:', err.message);
+    }
+  }
+  return result;
+}
+
+function readPastedParagraphs(body) {
+  const text = typeof body?.text === 'string' ? body.text : '';
+  if (text.length > PASTE_MAX_CHARS) throw new Error(`Слишком длинный текст — не больше ${PASTE_MAX_CHARS} символов за раз`);
+  const paragraphs = splitPastedText(text);
+  if (paragraphs.length === 0) throw new Error('Вставьте текст для перевода');
+  return paragraphs;
+}
+
+app.post('/api/books/text', async (req, res) => {
+  try {
+    const paragraphs = readPastedParagraphs(req.body);
+    const sourceLang = ['ru', 'en'].includes(req.body.source_lang) ? req.body.source_lang : detectLang(paragraphs.join(' '));
+    const targetLang = sourceLang === 'ru' ? 'en' : 'ru';
+    const title = (req.body.title || '').trim() || 'Мои тексты';
+    const author = (req.body.author || '').trim() || null;
+    const spineColor = SPINE_COLORS[Math.floor(Math.random() * SPINE_COLORS.length)];
+
+    const { rows } = await pool.query(
+      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count)
+       values ($1,$2,$3,$4,'txt',$5,$6) returning *`,
+      [title, author, sourceLang, targetLang, spineColor, paragraphs.length]
+    );
+    const book = rows[0];
+    const inserted = await insertParagraphs(book.id, 0, paragraphs);
+    res.json({ book, paragraphs: await translateAndStore(inserted, sourceLang, targetLang) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Appends more pasted text to the end of an existing book.
+app.post('/api/books/:id/text', async (req, res) => {
+  try {
+    const paragraphs = readPastedParagraphs(req.body);
+    const { rows } = await pool.query(
+      'update forge.books set paragraph_count = paragraph_count + $2 where id = $1 returning *',
+      [req.params.id, paragraphs.length]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Книга не найдена' });
+    const book = rows[0];
+    const inserted = await insertParagraphs(book.id, book.paragraph_count - paragraphs.length, paragraphs);
+    res.json({ book, paragraphs: await translateAndStore(inserted, book.source_lang, book.target_lang) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

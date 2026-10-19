@@ -28,6 +28,26 @@ export function useBooks() {
     return book;
   }, []);
 
+  // Pasted-text books: create/append return { book, paragraphs } with the
+  // fresh translations; the book row is mirrored into the library list.
+  const createFromText = useCallback(async ({ title, text }) => {
+    const data = await api.createTextBook({ title, text });
+    setBooks((prev) => [data.book, ...prev]);
+    return data;
+  }, []);
+
+  const appendText = useCallback(async (id, text) => {
+    const data = await api.appendBookText(id, text);
+    setBooks((prev) => prev.map((b) => (b.id === id ? data.book : b)));
+    return data;
+  }, []);
+
+  const rename = useCallback(async (id, title) => {
+    const book = await api.updateBook(id, { title });
+    setBooks((prev) => prev.map((b) => (b.id === id ? book : b)));
+    return book;
+  }, []);
+
   const removeBook = useCallback(async (id) => {
     setBooks((prev) => prev.filter((b) => b.id !== id));
     try {
@@ -46,5 +66,5 @@ export function useBooks() {
     }
   }, []);
 
-  return { books, loading, error, load, upload, removeBook, setProgress };
+  return { books, loading, error, load, upload, createFromText, appendText, rename, removeBook, setProgress };
 }

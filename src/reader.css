@@ -215,6 +215,7 @@
 .reader-progress-row-small { display: flex; justify-content: space-between; font-size: 13px; color: var(--r-ink-dim); }
 .reader-book-delete { justify-content: center; color: var(--r-ink-dim); }
 .reader-book-delete:hover { color: var(--accent-red); }
+.reader-book-add { justify-content: center; }
 
 /* ---------- Reading page ---------- */
 .reader-reading-layout { display: flex; flex-wrap: wrap; gap: 36px; align-items: flex-start; }
@@ -222,21 +223,42 @@
 .reader-book-header { margin-bottom: 28px; }
 .reader-book-header-meta { font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--r-ink-dim); margin-bottom: 8px; }
 
+/* Spread: original and translation as two separate pages (cards) side by
+   side. The cards are absolutely-positioned backdrops sharing the rows' grid
+   geometry, so each paragraph still lines up with its translation. */
+.reader-spread {
+  --spread-gutter: 44px;
+  position: relative;
+  display: flex; flex-direction: column;
+  padding: 10px 0 18px;
+}
+.reader-spread-sheet {
+  position: absolute; top: 0; bottom: 0;
+  width: calc((100% - var(--spread-gutter)) / 2);
+  background: var(--r-card); border: 1px solid var(--r-border); border-radius: 22px;
+  box-shadow: var(--shadow-card);
+}
+.reader-spread-sheet.left { left: 0; }
+.reader-spread-sheet.right { right: 0; }
+.reader-spread > :not(.reader-spread-sheet) { position: relative; }
+
 .reader-side-head {
-  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
-  padding-bottom: 14px; border-bottom: 1px solid var(--r-border);
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--spread-gutter) minmax(0, 1fr);
+  padding: 14px 0 6px;
   font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
 }
+.reader-side-head > span { padding: 0 26px; }
 
 .reader-paragraphs { display: flex; flex-direction: column; margin-top: 8px; }
 
 .reader-para-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
-  border-radius: 16px; cursor: pointer; padding: 4px 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--spread-gutter) minmax(0, 1fr);
+  cursor: pointer;
 }
-.reader-para-row.active { background: var(--r-accent-bg); }
-.reader-para-text { padding: 18px 16px; font-family: 'Literata', Georgia, serif; line-height: 1.65; }
-.reader-para-num { position: relative; display: flex; justify-content: center; padding-top: 20px; }
+.reader-para-text { margin: 4px 10px; padding: 12px 16px; border-radius: 14px; line-height: 1.65; }
+.reader-para-text-tr { line-height: 1.6; }
+.reader-para-row.active .reader-para-text { background: var(--r-accent-bg); }
+.reader-para-num { position: relative; display: flex; justify-content: center; padding-top: 16px; }
 .reader-para-dot {
   width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
   font-family: 'Unbounded', sans-serif; font-size: 10px; font-weight: 600;
@@ -248,8 +270,8 @@
 .reader-para-stack-row.active { background: var(--r-accent-bg); }
 .reader-para-num-inline { font-family: 'Unbounded', sans-serif; font-size: 10px; color: var(--r-ink-dimmer); padding-top: 22px; text-align: center; }
 .reader-para-stack-text { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 18px 4px; }
-.reader-para-original { margin: 0; font-family: 'Literata', Georgia, serif; line-height: 1.65; }
-.reader-para-translation { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.5; color: var(--r-accent2); }
+.reader-para-original { margin: 0; line-height: 1.65; }
+.reader-para-translation { margin: 0; line-height: 1.6; }
 
 .reader-word {
   border: 0; padding: 0 2px; margin: 0 -2px; border-radius: 4px; cursor: pointer;
@@ -269,7 +291,38 @@
 .reader-mode-btn.active { background: var(--r-ink); color: var(--text-inverse); }
 .reader-toolbar-sep { width: 1px; height: 26px; background: var(--r-border); }
 .reader-swap-btn { min-height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.06em; }
-.reader-size-btn { width: 40px; height: 40px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; font-family: 'Playfair Display', Georgia, serif; color: var(--r-ink); }
+
+/* Text settings popover (size / font / colour) */
+.reader-settings { position: relative; }
+.reader-settings .reader-settings-toggle {
+  height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; cursor: pointer;
+  font-family: 'Playfair Display', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--r-ink);
+}
+.reader-settings-toggle.active { background: var(--r-ink); color: var(--text-inverse); }
+.reader-settings-popover {
+  position: absolute; bottom: calc(100% + 14px); left: 50%; transform: translateX(-50%); z-index: 20;
+  width: min(340px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto;
+  background: var(--r-card); border: 1px solid var(--r-border); border-radius: 20px; box-shadow: var(--shadow-panel);
+  padding: 18px; display: flex; flex-direction: column; gap: 16px; text-align: left;
+}
+.reader-settings-group { display: flex; flex-direction: column; gap: 8px; }
+.reader-settings-label { font-family: 'Unbounded', sans-serif; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--r-ink-dim); }
+.reader-settings-size { display: flex; align-items: center; gap: 10px; }
+.reader-settings-size-value { min-width: 28px; text-align: center; font-weight: 600; }
+.reader-settings-fonts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.reader-settings .reader-settings-font {
+  min-height: 36px; padding: 0 8px; border-radius: 12px; cursor: pointer; font-size: 14px;
+  border: 1.5px solid var(--r-border); background: var(--r-card); color: var(--r-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.reader-settings-font.active { border-color: var(--r-ink); background: var(--r-chip); }
+.reader-settings-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.reader-settings-color {
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0;
+  border: 2px solid var(--r-card); box-shadow: 0 0 0 1px var(--r-border);
+}
+.reader-settings-color.active { box-shadow: 0 0 0 2px var(--r-ink); }
+.reader-settings-reset { align-self: flex-start; font-size: 13px; }
 .reader-progress-badge { font-family: 'Unbounded', sans-serif; font-size: 12px; padding: 0 10px; color: var(--r-accent-dark); }
 .reader-nav-btn { width: 40px; height: 40px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--r-ink); }
 .reader-nav-btn:disabled { opacity: 0.3; cursor: default; }
@@ -293,6 +346,27 @@
 .reader-deck-card .reader-eyebrow { color: var(--r-accent2); }
 .reader-deck-count { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 1.8rem; }
 .reader-deck-cta { font-weight: 600; font-size: 14px; color: var(--r-ink); }
+
+/* ---------- Paste page ("empty book") ---------- */
+.reader-title-input {
+  width: 100%; border: 0; border-bottom: 1.5px dashed var(--r-border); background: transparent; color: var(--r-ink);
+  padding: 4px 0 8px; outline: none;
+}
+.reader-title-input:focus { border-bottom-color: var(--r-accent); }
+.reader-title-input::placeholder { color: var(--r-ink-dimmer); }
+.reader-paste-saved { margin-top: 10px; font-size: 13px; color: var(--r-accent-dark); }
+.reader-para-row-static { cursor: default; }
+.reader-paste-cell { margin: 4px 10px; padding: 8px 6px; }
+.reader-paste-input {
+  width: 100%; box-sizing: border-box; min-height: 220px; resize: vertical;
+  border: 1.5px dashed var(--r-border); border-radius: 14px; padding: 12px 14px;
+  background: transparent; line-height: 1.6; outline: none;
+}
+.reader-paste-input:focus { border-color: var(--r-accent); border-style: solid; }
+.reader-paste-input::placeholder { color: var(--r-ink-dimmer); }
+.reader-paste-hint { padding: 20px 16px; font-size: 14px; color: var(--r-ink-dimmer); }
+.reader-btn-solid:disabled { opacity: 0.5; cursor: default; }
+.reader-library-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* ---------- Flashcards page ---------- */
 .reader-cards-empty { color: var(--r-ink-dim); font-size: 15px; padding: 24px 0; }
@@ -331,8 +405,14 @@
   .reader-reading-layout { flex-direction: column; }
   .reader-aside { position: static; width: 100%; }
   .reader-side-head { display: none; }
-  .reader-para-row { grid-template-columns: 1fr; }
+  .reader-spread-sheet { display: none; }
+  .reader-para-row { grid-template-columns: 1fr; margin-bottom: 14px; }
   .reader-para-row .reader-para-num { display: none; }
+  .reader-paste-hint { display: none; }
+  .reader-paste-cell { margin: 0; padding: 0; }
+  .reader-para-text { margin: 0; background: var(--r-card); border: 1px solid var(--r-border); }
+  .reader-para-row .reader-para-text:first-child { border-radius: 14px 14px 0 0; border-bottom: 0; }
+  .reader-para-row .reader-para-text:last-child { border-radius: 0 0 14px 14px; }
   .reader-toolbar { gap: 4px; }
   .reader-mode-group { order: 3; width: 100%; justify-content: center; }
 }

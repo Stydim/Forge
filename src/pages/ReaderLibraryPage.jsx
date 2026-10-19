@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { FilePlus2, Plus, Trash2 } from 'lucide-react';
 
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 const STATUS_LABEL = { reading: 'Читаю', new: 'Не начата', done: 'Прочитана' };
@@ -76,10 +76,16 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
 
       <div className="reader-library-head">
         <h1 className="reader-h1">Моя <span className="reader-accent-coral">библиотека</span></h1>
-        <button type="button" className="reader-btn-outline" onClick={pickFile} disabled={uploading}>
-          <Plus size={18} />
-          Загрузить TXT, EPUB или FB2
-        </button>
+        <div className="reader-library-actions">
+          <button type="button" className="reader-btn-outline" onClick={() => navigate('/reader/new')}>
+            <FilePlus2 size={18} />
+            Новая книга из текста
+          </button>
+          <button type="button" className="reader-btn-outline" onClick={pickFile} disabled={uploading}>
+            <Plus size={18} />
+            Загрузить TXT, EPUB или FB2
+          </button>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -143,7 +149,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
 
         {!loading && filtered.length === 0 && (
           <div className="reader-empty">
-            {books.length === 0 ? 'Пока нет ни одной книги — загрузите первую.' : 'В этом фильтре пока пусто.'}
+            {books.length === 0 ? 'Пока нет ни одной книги — загрузите файл или создайте книгу из своего текста.' : 'В этом фильтре пока пусто.'}
           </div>
         )}
 
@@ -188,6 +194,9 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                   <div className="reader-progress-track"><div className="reader-progress-fill" style={{ width: `${bookProgress(selected)}%` }} /></div>
                   <button type="button" className="reader-btn-solid reader-btn-cream" onClick={() => navigate(`/reader/book/${selected.id}`)}>
                     {STATUS_CTA[bookStatus(selected)]}
+                  </button>
+                  <button type="button" className="reader-btn-ghost reader-book-add" onClick={() => navigate(`/reader/paste/${selected.id}`)}>
+                    <FilePlus2 size={15} /> Дописать текст
                   </button>
                   <button
                     type="button"
