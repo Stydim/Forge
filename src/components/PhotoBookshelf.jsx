@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import shelfUrl from '../assets/bookshelf.jpg';
 import { SHELF_IMAGE_SIZE, SHELF_SLOTS } from '../lib/bookshelf';
@@ -38,12 +38,59 @@ function blankSpine(ctx, { x, y, w, h, dir }) {
 
 const pct = (v, total) => `${(v / total) * 100}%`;
 
+// Spine lettering: uppercase Playfair with 0.04em tracking (see reader.css).
+const TITLE_FONT = "600 100px 'Playfair Display', Georgia, serif";
+const LINE_HEIGHT = 1.15;
+const MIN_TITLE_PX = 9; // in photo pixels; anything longer gets ellipsized
+let measureCtx = null;
+function textWidth100(text) {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  measureCtx.font = TITLE_FONT;
+  return measureCtx.measureText(text).width + text.length * 4;
+}
+
+// Splits words into n lines with the narrowest widest line (titles are a
+// handful of words, so trying every split is cheap).
+function splitLines(words, n) {
+  if (n === 1) return { lines: [words.join(' ')], widest: textWidth100(words.join(' ')) };
+  let best = null;
+  for (let i = 1; i <= words.length - n + 1; i++) {
+    const head = words.slice(0, i).join(' ');
+    const rest = splitLines(words.slice(i), n - 1);
+    const widest = Math.max(textWidth100(head), rest.widest);
+    if (!best || widest < best.widest) best = { lines: [head, ...rest.lines], widest };
+  }
+  return best;
+}
+
+// Picks the line count and font size (in photo pixels) that make the title
+// as large as possible while fitting along the spine and across its width.
+function fitTitle(title, slot) {
+  const text = title.toUpperCase().trim();
+  const length = (slot.dir === 'v' ? slot.h : slot.w) * 0.86;
+  const thickness = slot.dir === 'v' ? slot.w : slot.h;
+  const words = text.split(/\s+/).filter(Boolean);
+  let best = { lines: [text], size: 0 };
+  for (let n = 1; n <= Math.min(3, words.length); n++) {
+    const { lines, widest } = splitLines(words, n);
+    const across = n === 1 ? thickness * 0.6 : (thickness * 0.86) / (n * LINE_HEIGHT);
+    const size = Math.min(across, (length * 100) / widest);
+    // Extra lines only when they make the title clearly bigger.
+    if (size > best.size * 1.05) best = { lines, size };
+  }
+  return { lines: best.lines, size: Math.max(MIN_TITLE_PX, best.size) };
+}
+
 // The library shelf: a bookshelf photo whose real spines are the places a
 // book can stand. Empty places are blank spines; a placed book's title is
-// lettered onto its spine.
-export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, onSlotClick }) {
+// lettered onto its spine. Clicking an empty place can open `menu` in a
+// popover beside that spine (`menuSlot`).
+export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, onSlotClick, menuSlot, menu, onMenuClose }) {
   const canvasRef = useRef(null);
+  const popoverRef = useRef(null);
   const [lums, setLums] = useState(null);
+  // Title fitting measures text in the real webfont, so redo it once loaded.
+  const [fontsReady, setFontsReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,19 +106,56 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
     return () => { cancelled = true; };
   }, []);
 
-  const bySlot = new Map(books.filter((b) => b.shelf_slot != null).map((b) => [b.shelf_slot, b]));
+  useEffect(() => {
+    let cancelled = false;
+    const done = () => { if (!cancelled) setFontsReady(true); };
+    if (document.fonts) document.fonts.load(TITLE_FONT).then(done, done);
+    else done();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (menuSlot == null) return undefined;
+    const onDown = (e) => { if (!popoverRef.current?.contains(e.target)) onMenuClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') onMenuClose(); };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuSlot, onMenuClose]);
+
   const { w: W, h: H } = SHELF_IMAGE_SIZE;
+  const fits = useMemo(() => {
+    const map = new Map();
+    for (const b of books) {
+      if (b.shelf_slot != null && SHELF_SLOTS[b.shelf_slot]) map.set(b.shelf_slot, { book: b, ...fitTitle(b.title, SHELF_SLOTS[b.shelf_slot]) });
+    }
+    return map;
+    // fontsReady only re-triggers measuring once the webfont is in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [books, fontsReady]);
+
+  // The popover opens beside the clicked spine, on whichever side has room,
+  // aligned to its top (upper half of the photo) or bottom (lower half).
+  let popoverStyle = null;
+  if (menuSlot != null) {
+    const s = SHELF_SLOTS[menuSlot];
+    popoverStyle = {};
+    if (s.x + s.w / 2 < W * 0.55) popoverStyle.left = `calc(${pct(s.x + s.w, W)} + 10px)`;
+    else popoverStyle.right = `calc(${pct(W - s.x, W)} + 10px)`;
+    if (s.y + s.h / 2 < H / 2) popoverStyle.top = pct(s.y, H);
+    else popoverStyle.bottom = pct(H - s.y - s.h, H);
+  }
 
   return (
     <div className={`reader-photo-shelf${placing ? ' placing' : ''}${lums ? ' ready' : ''}`}>
       <canvas ref={canvasRef} width={W} height={H} className="reader-photo-shelf-canvas" aria-hidden="true" />
       {SHELF_SLOTS.map((slot, i) => {
-        const book = bySlot.get(i);
+        const fit = fits.get(i);
+        const book = fit?.book;
         const dark = lums ? lums[i] < 140 : true;
-        // Title size follows the spine's thickness, in container-width units
-        // so it scales with the photo.
-        const thickness = slot.dir === 'v' ? slot.w : slot.h;
-        const fontSize = `${Math.min(2.2, (thickness / W) * 100 * 0.42)}cqw`;
         const cls = [
           'reader-photo-slot',
           slot.dir === 'v' ? 'vertical' : 'horizontal',
@@ -79,6 +163,7 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
           dark ? 'ink-light' : 'ink-dark',
           book && book.id === selectedId ? 'selected' : '',
           book && dimmedIds?.has(book.id) ? 'dimmed' : '',
+          menuSlot === i ? 'menu-open' : '',
         ].filter(Boolean).join(' ');
         return (
           <button
@@ -90,12 +175,22 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
             aria-label={book ? book.title : `Свободное место ${i + 1}`}
             title={book ? book.title : 'Свободное место'}
           >
-            {book
-              ? <span className="reader-photo-slot-title" style={{ fontSize }}>{book.title}</span>
-              : <span className="reader-photo-slot-plus"><Plus size={16} /></span>}
+            {book ? (
+              // Sized in container-width units so it scales with the photo.
+              <span className="reader-photo-slot-title" style={{ fontSize: `${(fit.size / W) * 100}cqw` }}>
+                {fit.lines.map((line, k) => <span key={k} className="reader-photo-slot-line">{line}</span>)}
+              </span>
+            ) : (
+              <span className="reader-photo-slot-plus"><Plus size={16} /></span>
+            )}
           </button>
         );
       })}
+      {menuSlot != null && (
+        <div ref={popoverRef} className="reader-photo-popover" style={popoverStyle} role="dialog" aria-label="Свободное место">
+          {menu}
+        </div>
+      )}
     </div>
   );
 }

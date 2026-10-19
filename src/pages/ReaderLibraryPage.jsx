@@ -35,7 +35,6 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
   const [pendingSlot, setPendingSlot] = useState(null);
 
   const sorted = useMemo(() => [...books].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [books]);
-  const reading = useMemo(() => sorted.find((b) => bookStatus(b) === 'reading') || sorted[0], [sorted]);
   const filtered = useMemo(
     () => sorted.filter((b) => filter === 'all' || bookStatus(b) === filter),
     [sorted, filter]
@@ -135,27 +134,6 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
       {uploadError && <div className="reader-error">Не удалось загрузить книгу: {uploadError}</div>}
       {error && <div className="reader-error">Не удалось связаться с базой: {error}</div>}
 
-      {reading && (
-        <section className="reader-hero" aria-label="Сейчас читаю">
-          <div className="reader-hero-cell reader-hero-coral">
-            <span className="reader-eyebrow">Оригинал · {LANG_LABEL[reading.source_lang]}</span>
-            <h2 className="reader-hero-title">{reading.title}</h2>
-            {reading.author && <span className="reader-hero-author">{reading.author}</span>}
-            <button type="button" className="reader-hero-cta" onClick={() => navigate(`/reader/book/${reading.id}`)}>
-              {STATUS_CTA[bookStatus(reading)]} →
-            </button>
-          </div>
-          <div className="reader-hero-cell reader-hero-cyan">
-            <span className="reader-eyebrow">Перевод · {LANG_LABEL[reading.target_lang]}</span>
-            <div className="reader-hero-progress-row">
-              <span>Прогресс</span>
-              <span>{bookProgress(reading)}%</span>
-            </div>
-            <div className="reader-progress-track"><div className="reader-progress-fill" style={{ width: `${bookProgress(reading)}%` }} /></div>
-          </div>
-        </section>
-      )}
-
       <section className="reader-shelf-section" aria-label="Полка">
         <div className="reader-shelf-head">
           <h2 className="reader-section-label">Полка</h2>
@@ -181,6 +159,30 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
               placing={!!placingBook}
               dimmedIds={dimmedIds}
               onSlotClick={onSlotClick}
+              menuSlot={placingBook ? null : slotMenu}
+              onMenuClose={() => setSlotMenu(null)}
+              menu={(
+                <>
+                  <div className="reader-shelf-panel-head">
+                    <span>Свободное место — что поставить сюда?</span>
+                    <button type="button" className="reader-gloss-close" onClick={() => setSlotMenu(null)} aria-label="Закрыть"><X size={16} /></button>
+                  </div>
+                  <button type="button" className="reader-popover-item" onClick={() => navigate(`/reader/new?slot=${slotMenu}`)}>
+                    <FilePlus2 size={16} /> Новая книга из текста
+                  </button>
+                  <button type="button" className="reader-popover-item" onClick={() => { setPendingSlot(slotMenu); setSlotMenu(null); pickFile(); }} disabled={uploading}>
+                    <Plus size={16} /> Загрузить файл
+                  </button>
+                  {unplaced.length > 0 && (
+                    <>
+                      <span className="reader-shelf-panel-sub">Или книгу, которой ещё нет на полке:</span>
+                      {unplaced.map((b) => (
+                        <button key={b.id} type="button" className="reader-popover-item reader-popover-book" onClick={() => placeHere(b.id)}>{b.title}</button>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
             />
 
             {placingBook && (
@@ -190,34 +192,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
               </div>
             )}
 
-            {!placingBook && slotMenu != null && (
-              <div className="reader-shelf-panel">
-                <div className="reader-shelf-panel-head">
-                  <span>Свободное место — какую книгу поставить сюда?</span>
-                  <button type="button" className="reader-gloss-close" onClick={() => setSlotMenu(null)} aria-label="Закрыть"><X size={16} /></button>
-                </div>
-                <div className="reader-shelf-panel-actions">
-                  <button type="button" className="reader-btn-outline" onClick={() => navigate(`/reader/new?slot=${slotMenu}`)}>
-                    <FilePlus2 size={16} /> Новая книга из текста
-                  </button>
-                  <button type="button" className="reader-btn-outline" onClick={() => { setPendingSlot(slotMenu); setSlotMenu(null); pickFile(); }} disabled={uploading}>
-                    <Plus size={16} /> Загрузить файл
-                  </button>
-                </div>
-                {unplaced.length > 0 && (
-                  <>
-                    <span className="reader-shelf-panel-sub">или из тех, что ещё не на полке:</span>
-                    <div className="reader-filters">
-                      {unplaced.map((b) => (
-                        <button key={b.id} type="button" className="reader-filter-chip" onClick={() => placeHere(b.id)}>{b.title}</button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {!placingBook && slotMenu == null && unplaced.length > 0 && (
+            {!placingBook && unplaced.length > 0 && (
               <div className="reader-shelf-panel">
                 <span className="reader-shelf-panel-sub">Ещё не на полке — выберите книгу, затем место для неё:</span>
                 <div className="reader-filters">

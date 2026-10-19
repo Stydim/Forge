@@ -149,28 +149,6 @@
 .reader-upload-prompt-actions { display: flex; gap: 8px; }
 .reader-upload-status { color: var(--r-ink-dim); font-size: 13px; }
 
-.reader-hero {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
-  border-radius: 28px;
-  overflow: hidden;
-  margin-bottom: 40px;
-  border: 1px solid var(--r-border);
-  box-shadow: var(--shadow-panel);
-}
-.reader-hero-cell { padding: 36px; display: flex; flex-direction: column; gap: 14px; min-height: 260px; box-sizing: border-box; }
-.reader-hero-coral { background: var(--r-accent-bg); color: var(--r-ink); }
-.reader-hero-cyan { background: var(--r-accent2-bg); color: var(--r-ink); }
-.reader-hero-coral .reader-eyebrow { color: var(--r-accent-dark); }
-.reader-hero-cyan .reader-eyebrow { color: var(--r-accent2); }
-.reader-hero-title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 2.6rem; line-height: 1; }
-.reader-hero-author { font-size: 15px; color: var(--r-ink-dim); }
-.reader-hero-cta {
-  margin-top: auto; align-self: flex-start;
-  min-height: 50px; padding: 0 22px; border: 0; border-radius: 25px;
-  background: var(--r-accent); color: var(--text-inverse); cursor: pointer; font-weight: 600; font-size: 15px;
-}
-.reader-hero-progress-row { display: flex; justify-content: space-between; font-family: 'Unbounded', sans-serif; font-size: 12px; margin-top: auto; color: var(--r-ink-dim); }
 .reader-progress-track { height: 8px; border-radius: 4px; background: var(--r-chip); }
 .reader-progress-fill { height: 100%; border-radius: 4px; background: var(--r-accent); }
 
@@ -193,11 +171,13 @@
 /* Photo bookshelf: the canvas is the photo with spine titles painted out;
    each place is a button laid over its spine in photo-relative percentages. */
 .reader-photo-shelf {
-  position: relative; container-type: inline-size;
-  border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-panel);
+  /* z-index: container-type makes this its own stacking context, and the
+     popover inside has to paint over the book card next to it. */
+  position: relative; z-index: 5; container-type: inline-size;
+  border-radius: 20px; box-shadow: var(--shadow-panel);
   background: #2a2017; aspect-ratio: 4 / 3;
 }
-.reader-photo-shelf-canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 0.3s ease; }
+.reader-photo-shelf-canvas { display: block; width: 100%; height: 100%; border-radius: 20px; opacity: 0; transition: opacity 0.3s ease; }
 .reader-photo-shelf.ready .reader-photo-shelf-canvas { opacity: 1; }
 .reader-photo-slot {
   position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer;
@@ -210,12 +190,45 @@
 .reader-photo-slot.selected { box-shadow: 0 0 0 2px var(--accent-amber), 0 0 18px rgba(232, 147, 90, 0.6); }
 .reader-photo-slot.dimmed { opacity: 0.35; }
 .reader-photo-slot-title {
-  font-family: 'Playfair Display', Georgia, serif; font-weight: 600; letter-spacing: 0.04em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 600; letter-spacing: 0.04em; line-height: 1.15;
+  text-transform: uppercase; text-align: center; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.reader-photo-slot.vertical .reader-photo-slot-title { writing-mode: vertical-rl; max-height: 88%; }
-.reader-photo-slot.horizontal .reader-photo-slot-title { max-width: 90%; }
+.reader-photo-slot-line { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* In vertical-rl the block axis runs right-to-left, so lines stack across
+   the spine and each line runs along it. */
+.reader-photo-slot.vertical .reader-photo-slot-title { writing-mode: vertical-rl; max-height: 90%; }
+.reader-photo-slot.vertical .reader-photo-slot-line { max-width: none; max-height: 100%; }
+.reader-photo-slot.horizontal .reader-photo-slot-title { max-width: 92%; }
+.reader-photo-slot.menu-open { box-shadow: 0 0 0 2px var(--accent-amber); background: rgba(255, 240, 200, 0.18); }
+.reader-photo-slot.menu-open .reader-photo-slot-plus { opacity: 0.9; }
+
+/* "What to put on this empty place" popover, anchored beside the spine. */
+.reader-photo-popover {
+  position: absolute; z-index: 30; width: 290px; max-width: calc(100% - 20px);
+  background: var(--r-card); border: 1px solid var(--r-border); border-radius: 18px; box-shadow: var(--shadow-panel);
+  padding: 14px; display: flex; flex-direction: column; gap: 4px; font-size: 14px;
+  animation: reader-pop 0.14s ease-out;
+}
+@keyframes reader-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+.reader-photo-popover .reader-shelf-panel-head { margin-bottom: 4px; }
+.reader-photo-popover .reader-shelf-panel-sub { margin-top: 6px; }
+.reader-page .reader-popover-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 42px; padding: 0 12px;
+  border: 0; border-radius: 12px; background: transparent; color: var(--r-ink); cursor: pointer; text-align: left;
+  font-size: 14px; font-weight: 500;
+}
+.reader-page .reader-popover-item:hover { background: var(--r-chip); }
+.reader-page .reader-popover-item:disabled { opacity: 0.5; cursor: default; }
+.reader-page .reader-popover-book { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; }
+/* Spines are too narrow on phones to open beside, so it drops down over the
+   page right under the photo instead. */
+@media (max-width: 640px) {
+  .reader-photo-popover {
+    left: 0 !important; right: 0 !important; top: calc(100% + 8px) !important; bottom: auto !important;
+    width: auto; max-width: none;
+  }
+}
 .reader-photo-slot-plus { opacity: 0; display: flex; transition: opacity 0.15s ease; }
 .reader-photo-slot.empty:hover .reader-photo-slot-plus,
 .reader-photo-slot.empty:focus-visible .reader-photo-slot-plus,
@@ -425,8 +438,6 @@
 @media (max-width: 768px) {
   .reader-page { padding: 20px 16px 32px; }
   .reader-h1 { font-size: 2rem; }
-  .reader-hero-title { font-size: 1.9rem; }
-  .reader-hero-cell { padding: 24px; min-height: 200px; }
   .reader-reading-layout { flex-direction: column; }
   .reader-aside { position: static; width: 100%; }
   .reader-side-head { display: none; }
