@@ -37,7 +37,54 @@ function blankSpine(ctx, { x, y, w, h, dir }) {
   return lumSum / lines;
 }
 
+// Paints out the framed print's text inside its (slightly turned) paper quad.
+// Same per-column median as the spines, but only for pixels inside the quad,
+// blended in over the last few pixels before its edges so no hard seam shows
+// where the cleaned paper meets the untouched rim next to the frame.
+function blankPaper(ctx, quad, feather = 8) {
+  const xs = quad.map((q) => q[0]);
+  const ys = quad.map((q) => q[1]);
+  const x0 = Math.floor(Math.min(...xs));
+  const y0 = Math.floor(Math.min(...ys));
+  const w = Math.ceil(Math.max(...xs)) - x0;
+  const h = Math.ceil(Math.max(...ys)) - y0;
+  const img = ctx.getImageData(x0, y0, w, h);
+  const d = img.data;
+  // Corners go clockwise on screen, so each edge's inward normal is (-dy, dx).
+  const edges = quad.map((a, i) => {
+    const b = quad[(i + 1) % quad.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return { ax: a[0], ay: a[1], nx: -(b[1] - a[1]) / len, ny: (b[0] - a[0]) / len };
+  });
+  const depth = (px, py) => Math.min(...edges.map((e) => (px - e.ax) * e.nx + (py - e.ay) * e.ny));
+  for (let i = 0; i < w; i++) {
+    const r = [], g = [], b = [], rows = [];
+    for (let j = 0; j < h; j++) {
+      const dist = depth(x0 + i + 0.5, y0 + j + 0.5);
+      if (dist <= 0) continue;
+      const p = (j * w + i) * 4;
+      r.push(d[p]); g.push(d[p + 1]); b.push(d[p + 2]);
+      rows.push([p, Math.min(1, dist / feather)]);
+    }
+    if (!rows.length) continue;
+    const mr = median(r), mg = median(g), mb = median(b);
+    for (const [p, t] of rows) {
+      d[p] += (mr - d[p]) * t;
+      d[p + 1] += (mg - d[p + 1]) * t;
+      d[p + 2] += (mb - d[p + 2]) * t;
+    }
+  }
+  ctx.putImageData(img, x0, y0);
+}
+
 const pct = (v, total) => `${(v / total) * 100}%`;
+
+const PAPER_BOUNDS = (() => {
+  const xs = QUOTE_FRAME.paper.map((q) => q[0]);
+  const ys = QUOTE_FRAME.paper.map((q) => q[1]);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+})();
 
 // Spine lettering: uppercase Playfair with 0.04em tracking (see reader.css).
 const TITLE_FONT = "600 100px 'Playfair Display', Georgia, serif";
@@ -103,7 +150,7 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
       ctx.drawImage(img, 0, 0, SHELF_IMAGE_SIZE.w, SHELF_IMAGE_SIZE.h);
       // The print's paper: per-column medians keep its light falloff and
       // drop the printed lines of text.
-      blankSpine(ctx, { ...QUOTE_FRAME.mat, dir: 'v' });
+      blankPaper(ctx, QUOTE_FRAME.paper);
       setLums(SHELF_SLOTS.map((slot) => blankSpine(ctx, slot)));
     };
     img.src = shelfUrl;
@@ -145,7 +192,7 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
   // aligned to its top (upper half of the photo) or bottom (lower half).
   let popoverStyle = null;
   if (menuSlot != null) {
-    const s = menuSlot === 'frame' ? QUOTE_FRAME.mat : SHELF_SLOTS[menuSlot];
+    const s = menuSlot === 'frame' ? PAPER_BOUNDS : SHELF_SLOTS[menuSlot];
     popoverStyle = {};
     if (s.x + s.w / 2 < W * 0.55) popoverStyle.left = `calc(${pct(s.x + s.w, W)} + 10px)`;
     else popoverStyle.right = `calc(${pct(W - s.x, W)} + 10px)`;
@@ -193,7 +240,13 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
       <button
         type="button"
         className={`reader-photo-frame${menuSlot === 'frame' ? ' menu-open' : ''}`}
-        style={{ left: pct(QUOTE_FRAME.text.x, W), top: pct(QUOTE_FRAME.text.y, H), width: pct(QUOTE_FRAME.text.w, W), height: pct(QUOTE_FRAME.text.h, H) }}
+        style={{
+          left: pct(QUOTE_FRAME.text.cx - QUOTE_FRAME.text.w / 2, W),
+          top: pct(QUOTE_FRAME.text.cy - QUOTE_FRAME.text.h / 2, H),
+          width: pct(QUOTE_FRAME.text.w, W),
+          height: pct(QUOTE_FRAME.text.h, H),
+          transform: `rotate(${QUOTE_FRAME.text.angle}deg)`,
+        }}
         onClick={onFrameClick}
         aria-label="Цитата в рамке"
         title="Добавить цитату"

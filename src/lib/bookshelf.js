@@ -5,11 +5,14 @@
 // `dir: 'v'` — upright spine (title reads top-to-bottom), 'h' — book lying flat.
 export const SHELF_IMAGE_SIZE = { w: 1600, h: 1200 };
 
-// The framed print on the bottom shelf: `mat` is the paper area whose printed
-// quote gets painted out, `text` the box the saved quote is typeset into.
+// The framed print on the bottom shelf. The frame stands slightly turned, so
+// the paper is a quad (corners clockwise from top-left, just inside the
+// frame's bevel) rather than a rect; its printed quote is painted out inside
+// it. `text` is the box the saved quote is typeset into: centre, size, and
+// the paper's tilt in degrees.
 export const QUOTE_FRAME = {
-  mat: { x: 112, y: 898, w: 236, h: 252 },
-  text: { x: 134, y: 926, w: 190, h: 206 },
+  paper: [[100, 903], [339, 894], [360, 1144], [115, 1162]],
+  text: { cx: 229, cy: 1026, w: 176, h: 194, angle: -2.6 },
 };
 
 export const SHELF_SLOTS = [
