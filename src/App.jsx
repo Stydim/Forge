@@ -149,12 +149,13 @@ export default function App() {
                 error={books.error}
                 onUpload={books.upload}
                 onDelete={books.removeBook}
+                onPlace={books.place}
               />
             )}
           />
           <Route path="/reader/book/:bookId" element={<ReaderPage onProgress={books.setProgress} savedWords={savedWords} />} />
-          <Route path="/reader/new" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} />} />
-          <Route path="/reader/paste/:bookId" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} />} />
+          <Route path="/reader/new" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} onPlace={books.place} />} />
+          <Route path="/reader/paste/:bookId" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} onPlace={books.place} />} />
           <Route path="/reader/cards" element={<FlashcardsPage savedWords={savedWords} />} />
           <Route
             path="/settings"

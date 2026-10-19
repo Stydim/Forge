@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus2, Plus, Trash2 } from 'lucide-react';
+import { FilePlus2, MoveRight, Plus, Trash2, Undo2, X } from 'lucide-react';
+import PhotoBookshelf from '../components/PhotoBookshelf';
 
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 const STATUS_LABEL = { reading: 'Читаю', new: 'Не начата', done: 'Прочитана' };
@@ -18,16 +19,7 @@ function bookProgress(book) {
   return Math.min(100, Math.round((book.current_paragraph / book.paragraph_count) * 100));
 }
 
-function spineHeight(book) {
-  const h = 200 + Math.min(120, Math.round(book.paragraph_count / 8));
-  return h;
-}
-
-function spineWidth(book) {
-  return 38 + Math.min(40, Math.round(book.paragraph_count / 20));
-}
-
-export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete }) {
+export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete, onPlace }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [filter, setFilter] = useState('all');
@@ -35,6 +27,12 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [pendingFile, setPendingFile] = useState(null);
+  // Shelf interaction: placingId = book waiting for the user to pick its
+  // place; slotMenu = empty place that was clicked (offers what to put there);
+  // pendingSlot = place an upload started from, applied once it finishes.
+  const [placingId, setPlacingId] = useState(null);
+  const [slotMenu, setSlotMenu] = useState(null);
+  const [pendingSlot, setPendingSlot] = useState(null);
 
   const sorted = useMemo(() => [...books].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [books]);
   const reading = useMemo(() => sorted.find((b) => bookStatus(b) === 'reading') || sorted[0], [sorted]);
@@ -42,7 +40,33 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
     () => sorted.filter((b) => filter === 'all' || bookStatus(b) === filter),
     [sorted, filter]
   );
-  const selected = filtered.find((b) => b.id === selectedId) || filtered[0] || null;
+  const selected = sorted.find((b) => b.id === selectedId) || filtered[0] || null;
+  const unplaced = useMemo(() => sorted.filter((b) => b.shelf_slot == null), [sorted]);
+  const dimmedIds = useMemo(
+    () => new Set(sorted.filter((b) => filter !== 'all' && bookStatus(b) !== filter).map((b) => b.id)),
+    [sorted, filter]
+  );
+  const placingBook = placingId ? sorted.find((b) => b.id === placingId) : null;
+
+  const onSlotClick = (slot, book) => {
+    if (placingBook) {
+      onPlace(placingBook.id, slot);
+      setSelectedId(placingBook.id);
+      setPlacingId(null);
+      setSlotMenu(null);
+    } else if (book) {
+      setSelectedId(book.id);
+      setSlotMenu(null);
+    } else {
+      setSlotMenu(slot);
+    }
+  };
+
+  const placeHere = (bookId) => {
+    onPlace(bookId, slotMenu);
+    setSelectedId(bookId);
+    setSlotMenu(null);
+  };
 
   const pickFile = () => fileInputRef.current?.click();
 
@@ -59,7 +83,9 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
     setUploadError(null);
     try {
       const book = await onUpload({ file: pendingFile, sourceLang });
+      if (pendingSlot != null) onPlace(book.id, pendingSlot);
       setPendingFile(null);
+      setPendingSlot(null);
       setSelectedId(book.id);
     } catch (err) {
       setUploadError(err.message);
@@ -101,7 +127,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
           <div className="reader-upload-prompt-actions">
             <button type="button" className="reader-btn-solid reader-btn-coral" disabled={uploading} onClick={() => confirmUpload('ru')}>Русский</button>
             <button type="button" className="reader-btn-solid reader-btn-cyan" disabled={uploading} onClick={() => confirmUpload('en')}>English</button>
-            <button type="button" className="reader-btn-ghost" disabled={uploading} onClick={() => setPendingFile(null)}>Отмена</button>
+            <button type="button" className="reader-btn-ghost" disabled={uploading} onClick={() => { setPendingFile(null); setPendingSlot(null); }}>Отмена</button>
           </div>
           {uploading && <span className="reader-upload-status">Разбираю файл…</span>}
         </div>
@@ -147,37 +173,65 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
           </div>
         </div>
 
-        {!loading && filtered.length === 0 && (
-          <div className="reader-empty">
-            {books.length === 0 ? 'Пока нет ни одной книги — загрузите файл или создайте книгу из своего текста.' : 'В этом фильтре пока пусто.'}
-          </div>
-        )}
+        <div className="reader-shelf-row">
+          <div className="reader-shelf">
+            <PhotoBookshelf
+              books={sorted}
+              selectedId={selected?.id}
+              placing={!!placingBook}
+              dimmedIds={dimmedIds}
+              onSlotClick={onSlotClick}
+            />
 
-        {filtered.length > 0 && (
-          <div className="reader-shelf-row">
-            <div className="reader-shelf">
-              <div className="reader-shelf-books">
-                {filtered.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className={`reader-spine${selected?.id === b.id ? ' selected' : ''}`}
-                    style={{
-                      width: spineWidth(b),
-                      height: spineHeight(b),
-                      background: b.spine_color,
-                      color: b.spine_color === '#2C3140' || b.spine_color === '#1F2228' ? '#ECEAE4' : '#111214',
-                    }}
-                    onClick={() => setSelectedId(b.id)}
-                  >
-                    <span className="reader-spine-band" />
-                    <span className="reader-spine-title">{b.title}</span>
-                    <span className="reader-spine-pair">{LANG_LABEL[b.source_lang]} → {LANG_LABEL[b.target_lang]}</span>
-                  </button>
-                ))}
+            {placingBook && (
+              <div className="reader-shelf-panel">
+                <span>Нажмите на корешок, куда поставить «{placingBook.title}»</span>
+                <button type="button" className="reader-btn-ghost" onClick={() => setPlacingId(null)}>Отмена</button>
               </div>
-              <div className="reader-shelf-ledge" />
-            </div>
+            )}
+
+            {!placingBook && slotMenu != null && (
+              <div className="reader-shelf-panel">
+                <div className="reader-shelf-panel-head">
+                  <span>Свободное место — какую книгу поставить сюда?</span>
+                  <button type="button" className="reader-gloss-close" onClick={() => setSlotMenu(null)} aria-label="Закрыть"><X size={16} /></button>
+                </div>
+                <div className="reader-shelf-panel-actions">
+                  <button type="button" className="reader-btn-outline" onClick={() => navigate(`/reader/new?slot=${slotMenu}`)}>
+                    <FilePlus2 size={16} /> Новая книга из текста
+                  </button>
+                  <button type="button" className="reader-btn-outline" onClick={() => { setPendingSlot(slotMenu); setSlotMenu(null); pickFile(); }} disabled={uploading}>
+                    <Plus size={16} /> Загрузить файл
+                  </button>
+                </div>
+                {unplaced.length > 0 && (
+                  <>
+                    <span className="reader-shelf-panel-sub">или из тех, что ещё не на полке:</span>
+                    <div className="reader-filters">
+                      {unplaced.map((b) => (
+                        <button key={b.id} type="button" className="reader-filter-chip" onClick={() => placeHere(b.id)}>{b.title}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {!placingBook && slotMenu == null && unplaced.length > 0 && (
+              <div className="reader-shelf-panel">
+                <span className="reader-shelf-panel-sub">Ещё не на полке — выберите книгу, затем место для неё:</span>
+                <div className="reader-filters">
+                  {unplaced.map((b) => (
+                    <button key={b.id} type="button" className="reader-filter-chip" onClick={() => { setPlacingId(b.id); setSelectedId(b.id); }}>{b.title}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!loading && books.length === 0 && (
+              <div className="reader-empty">Пока нет ни одной книги — нажмите на любой корешок, чтобы поставить на это место первую.</div>
+            )}
+          </div>
 
             {selected && (
               <article className="reader-book-card">
@@ -195,6 +249,14 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                   <button type="button" className="reader-btn-solid reader-btn-cream" onClick={() => navigate(`/reader/book/${selected.id}`)}>
                     {STATUS_CTA[bookStatus(selected)]}
                   </button>
+                  <button type="button" className="reader-btn-ghost reader-book-add" onClick={() => { setSlotMenu(null); setPlacingId(selected.id); }}>
+                    <MoveRight size={15} /> {selected.shelf_slot == null ? 'Поставить на полку' : 'Переставить'}
+                  </button>
+                  {selected.shelf_slot != null && (
+                    <button type="button" className="reader-btn-ghost reader-book-add" onClick={() => onPlace(selected.id, null)}>
+                      <Undo2 size={15} /> Убрать с полки
+                    </button>
+                  )}
                   <button type="button" className="reader-btn-ghost reader-book-add" onClick={() => navigate(`/reader/paste/${selected.id}`)}>
                     <FilePlus2 size={15} /> Дописать текст
                   </button>
@@ -208,8 +270,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                 </div>
               </article>
             )}
-          </div>
-        )}
+        </div>
       </section>
     </div>
   );

@@ -88,6 +88,9 @@ create table forge.books (
   -- Last-read position (paragraph index) — doubles as the resume point and
   -- the progress-bar numerator.
   current_paragraph integer not null default 0,
+  -- Place on the library's bookshelf photo (index into SHELF_SLOTS in
+  -- src/lib/bookshelf.js); null = not placed yet.
+  shelf_slot integer,
   created_at timestamptz not null default now()
 );
 

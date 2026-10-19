@@ -187,23 +187,48 @@
 }
 .reader-filter-chip.active { background: var(--r-ink); color: var(--text-inverse); border-color: var(--r-ink); }
 
-.reader-shelf-row { display: flex; flex-wrap: wrap; gap: 32px; align-items: stretch; }
-.reader-shelf { flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; }
-.reader-shelf-books { display: flex; align-items: flex-end; gap: 6px; min-height: 260px; padding: 0 8px; overflow-x: auto; }
-.reader-spine {
-  flex: 0 0 auto; border: 0; padding: 0; border-radius: 4px 4px 2px 2px; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-  box-shadow: inset -5px 0 0 rgba(0, 0, 0, 0.18), 0 2px 6px rgba(60, 50, 20, 0.15); transition: transform 0.15s ease;
+.reader-shelf-row { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+.reader-shelf { flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+
+/* Photo bookshelf: the canvas is the photo with spine titles painted out;
+   each place is a button laid over its spine in photo-relative percentages. */
+.reader-photo-shelf {
+  position: relative; container-type: inline-size;
+  border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-panel);
+  background: #2a2017; aspect-ratio: 4 / 3;
 }
-.reader-spine.selected { transform: translateY(-14px); }
-.reader-spine-band { width: 100%; height: 8px; background: rgba(0, 0, 0, 0.3); }
-.reader-spine-title {
-  writing-mode: vertical-rl; transform: rotate(180deg);
-  font-family: 'Playfair Display', Georgia, serif; font-weight: 600; font-size: 14px;
-  white-space: nowrap; overflow: hidden; max-height: 70%;
+.reader-photo-shelf-canvas { display: block; width: 100%; height: 100%; opacity: 0; transition: opacity 0.3s ease; }
+.reader-photo-shelf.ready .reader-photo-shelf-canvas { opacity: 1; }
+.reader-photo-slot {
+  position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  border-radius: 3px; transition: box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
-.reader-spine-pair { font-family: 'Unbounded', sans-serif; font-size: 9px; letter-spacing: 0.08em; padding-bottom: 8px; }
-.reader-shelf-ledge { height: 12px; border-radius: 2px; background: var(--border-color); box-shadow: var(--shadow-panel); margin-top: 2px; }
+.reader-photo-slot.ink-light { color: #E6D3A3; }
+.reader-photo-slot.ink-dark { color: #3A2E1E; }
+.reader-photo-slot:hover, .reader-photo-slot:focus-visible { background: rgba(255, 240, 200, 0.14); outline: none; }
+.reader-photo-slot.selected { box-shadow: 0 0 0 2px var(--accent-amber), 0 0 18px rgba(232, 147, 90, 0.6); }
+.reader-photo-slot.dimmed { opacity: 0.35; }
+.reader-photo-slot-title {
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 600; letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.reader-photo-slot.vertical .reader-photo-slot-title { writing-mode: vertical-rl; max-height: 88%; }
+.reader-photo-slot.horizontal .reader-photo-slot-title { max-width: 90%; }
+.reader-photo-slot-plus { opacity: 0; display: flex; transition: opacity 0.15s ease; }
+.reader-photo-slot.empty:hover .reader-photo-slot-plus,
+.reader-photo-slot.empty:focus-visible .reader-photo-slot-plus,
+.reader-photo-shelf.placing .reader-photo-slot.empty .reader-photo-slot-plus { opacity: 0.85; }
+.reader-photo-shelf.placing .reader-photo-slot { box-shadow: inset 0 0 0 1.5px rgba(255, 230, 180, 0.55); }
+
+.reader-shelf-panel {
+  background: var(--r-card); border: 1px solid var(--r-border); border-radius: 18px; padding: 14px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; box-shadow: var(--shadow-card);
+}
+.reader-shelf-panel-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 500; }
+.reader-shelf-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.reader-shelf-panel-sub { width: 100%; color: var(--r-ink-dim); font-size: 13px; }
 
 .reader-book-card {
   flex: 1 1 280px; background: var(--r-card); border: 1px solid var(--r-border); border-radius: 24px;

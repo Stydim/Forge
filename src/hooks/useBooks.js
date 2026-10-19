@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
 
 export function useBooks() {
@@ -21,6 +21,9 @@ export function useBooks() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const booksRef = useRef(books);
+  useEffect(() => { booksRef.current = books; }, [books]);
 
   const upload = useCallback(async ({ file, sourceLang, title, author }) => {
     const book = await api.uploadBook({ file, sourceLang, title, author });
@@ -48,6 +51,25 @@ export function useBooks() {
     return book;
   }, []);
 
+  // Puts a book on a shelf place (or takes it off with slot = null). If
+  // another book already stands there, the two swap places.
+  const place = useCallback(async (id, slot) => {
+    const current = booksRef.current;
+    const oldSlot = current.find((b) => b.id === id)?.shelf_slot ?? null;
+    const occupant = slot == null ? null : current.find((b) => b.shelf_slot === slot && b.id !== id);
+    setBooks((prev) => prev.map((b) => {
+      if (b.id === id) return { ...b, shelf_slot: slot };
+      if (occupant && b.id === occupant.id) return { ...b, shelf_slot: oldSlot };
+      return b;
+    }));
+    try {
+      await api.updateBook(id, { shelf_slot: slot });
+      if (occupant && oldSlot != null) await api.updateBook(occupant.id, { shelf_slot: oldSlot });
+    } catch (err) {
+      setError(err.message); load();
+    }
+  }, [load]);
+
   const removeBook = useCallback(async (id) => {
     setBooks((prev) => prev.filter((b) => b.id !== id));
     try {
@@ -66,5 +88,5 @@ export function useBooks() {
     }
   }, []);
 
-  return { books, loading, error, load, upload, createFromText, appendText, rename, removeBook, setProgress };
+  return { books, loading, error, load, upload, createFromText, appendText, rename, place, removeBook, setProgress };
 }

@@ -438,7 +438,7 @@ app.put('/api/habits/:habitId/completions/:date', async (req, res) => {
 // --- Reader: books ---
 const BOOK_FORMATS = new Set(['epub', 'fb2', 'txt']);
 const SPINE_COLORS = ['#FF6A3D', '#5CC8E0', '#ECEAE4', '#2C3140', '#B8432A', '#3A6F7B', '#1F2228', '#D9D3C4'];
-const BOOK_COLUMNS = ['title', 'author', 'current_paragraph'];
+const BOOK_COLUMNS = ['title', 'author', 'current_paragraph', 'shelf_slot'];
 
 app.post('/api/books', upload.single('file'), async (req, res) => {
   try {
@@ -596,6 +596,11 @@ app.get('/api/books/:id', async (req, res) => {
 
 app.patch('/api/books/:id', async (req, res) => {
   try {
+    // A shelf place holds one book: putting a book there takes it off from
+    // whichever book stood there before.
+    if (req.body?.shelf_slot != null) {
+      await pool.query('update forge.books set shelf_slot = null where shelf_slot = $1 and id <> $2', [req.body.shelf_slot, req.params.id]);
+    }
     const { text, values } = buildPatch('books', BOOK_COLUMNS, req.params.id, req.body);
     const { rows } = await pool.query(text, values);
     if (!rows.length) return res.status(404).json({ error: 'Книга не найдена' });
@@ -741,4 +746,12 @@ app.delete('/api/saved-words/:id', async (req, res) => {
 
 app.use(express.static(DIST));
 app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')));
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Additive, idempotent schema upgrades for columns added after the initial
+// db/schema.sql was applied — keeps deploys self-sufficient.
+async function migrate() {
+  await pool.query('alter table forge.books add column if not exists shelf_slot integer');
+}
+
+migrate()
+  .catch((err) => console.error('migrate failed:', err.message))
+  .finally(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)));

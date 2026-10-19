@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import * as api from '../lib/api';
 import { useReaderSettings } from '../lib/readerSettings';
 import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
@@ -11,8 +11,12 @@ const CONTEXT_TAIL = 6;
 // "Empty book": the user pastes text into the left page, it's translated into
 // the right page, and the result is saved as a regular book in the library
 // (more text can be appended to it later).
-export default function ReaderPastePage({ books, onCreate, onAppend, onRename }) {
+export default function ReaderPastePage({ books, onCreate, onAppend, onRename, onPlace }) {
   const { bookId } = useParams();
+  // Set when the new book was started from an empty place on the shelf.
+  const [searchParams] = useSearchParams();
+  const slotParam = searchParams.get('slot');
+  const shelfSlot = slotParam != null && /^d+$/.test(slotParam) ? Number(slotParam) : null;
   const navigate = useNavigate();
   const { settings, update, reset, origStyle, trStyle } = useReaderSettings();
 
@@ -57,6 +61,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename })
         setPairs((prev) => [...prev, ...data.paragraphs]);
       } else {
         const data = await onCreate({ title: title.trim(), text });
+        if (shelfSlot != null) onPlace(data.book.id, shelfSlot);
         setBook(data.book);
         setTitle(data.book.title);
         setPairs(data.paragraphs);
