@@ -18,6 +18,7 @@ import { useTasks } from './hooks/useTasks';
 import { useHabits } from './hooks/useHabits';
 import { useBooks } from './hooks/useBooks';
 import { useSavedWords } from './hooks/useSavedWords';
+import { useQuotes } from './hooks/useQuotes';
 import { useActiveCharacter } from './hooks/useActiveCharacter';
 import { useBackground } from './hooks/useBackground';
 import { getBackground } from './lib/backgrounds';
@@ -29,6 +30,7 @@ export default function App() {
   const habits = useHabits();
   const books = useBooks();
   const savedWords = useSavedWords();
+  const quotes = useQuotes();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
@@ -150,10 +152,11 @@ export default function App() {
                 onUpload={books.upload}
                 onDelete={books.removeBook}
                 onPlace={books.place}
+                quotes={quotes}
               />
             )}
           />
-          <Route path="/reader/book/:bookId" element={<ReaderPage onProgress={books.setProgress} savedWords={savedWords} />} />
+          <Route path="/reader/book/:bookId" element={<ReaderPage onProgress={books.setProgress} savedWords={savedWords} onSaveQuote={quotes.add} />} />
           <Route path="/reader/new" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} onPlace={books.place} />} />
           <Route path="/reader/paste/:bookId" element={<ReaderPastePage books={books.books} onCreate={books.createFromText} onAppend={books.appendText} onRename={books.rename} onPlace={books.place} />} />
           <Route path="/reader/cards" element={<FlashcardsPage savedWords={savedWords} />} />

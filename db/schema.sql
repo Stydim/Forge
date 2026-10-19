@@ -144,3 +144,16 @@ create table forge.tts_cache (
   audio bytea not null,
   created_at timestamptz not null default now()
 );
+
+-- Quotes saved from books (or pasted by hand), shown in the picture frame on
+-- the library's bookshelf photo: the pinned one, which a new quote becomes.
+-- book_title is a snapshot so the attribution survives deleting the book.
+create table forge.quotes (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  author text,
+  book_id uuid references forge.books(id) on delete set null,
+  book_title text,
+  pinned boolean not null default false,
+  created_at timestamptz not null default now()
+);

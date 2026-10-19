@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilePlus2, MoveRight, Plus, Trash2, Undo2, X } from 'lucide-react';
 import PhotoBookshelf from '../components/PhotoBookshelf';
+import QuoteForm from '../components/QuoteForm';
 
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 const STATUS_LABEL = { reading: 'Читаю', new: 'Не начата', done: 'Прочитана' };
@@ -19,7 +20,7 @@ function bookProgress(book) {
   return Math.min(100, Math.round((book.current_paragraph / book.paragraph_count) * 100));
 }
 
-export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete, onPlace }) {
+export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete, onPlace, quotes }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [filter, setFilter] = useState('all');
@@ -159,9 +160,39 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
               placing={!!placingBook}
               dimmedIds={dimmedIds}
               onSlotClick={onSlotClick}
+              quote={quotes.quotes[0] || null}
+              onFrameClick={() => { if (!placingBook) setSlotMenu('frame'); }}
               menuSlot={placingBook ? null : slotMenu}
               onMenuClose={() => setSlotMenu(null)}
-              menu={(
+              menu={slotMenu === 'frame' ? (
+                <>
+                  <div className="reader-shelf-panel-head">
+                    <span>Цитата в рамке</span>
+                    <button type="button" className="reader-gloss-close" onClick={() => setSlotMenu(null)} aria-label="Закрыть"><X size={16} /></button>
+                  </div>
+                  <QuoteForm books={sorted} onSave={async (q) => { await quotes.add(q); setSlotMenu(null); }} autoFocus />
+                  {quotes.quotes.length > 0 && (
+                    <>
+                      <span className="reader-shelf-panel-sub">Сохранённые — нажмите, чтобы повесить в рамку:</span>
+                      <div className="reader-quote-list">
+                        {quotes.quotes.map((q, i) => (
+                          <div key={q.id} className={`reader-quote-item${i === 0 ? ' current' : ''}`}>
+                            <button type="button" className="reader-quote-item-main" onClick={() => quotes.pin(q.id)}>
+                              <span className="reader-quote-item-text">“{q.text}”</span>
+                              {(q.author || q.book_title) && (
+                                <span className="reader-quote-item-meta">— {[q.author, q.book_title && `«${q.book_title}»`].filter(Boolean).join(', ')}</span>
+                              )}
+                            </button>
+                            <button type="button" className="reader-deck-row-delete" onClick={() => quotes.remove(q.id)} aria-label="Удалить цитату">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
                 <>
                   <div className="reader-shelf-panel-head">
                     <span>Свободное место — что поставить сюда?</span>

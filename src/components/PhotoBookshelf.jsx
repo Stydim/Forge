@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import shelfUrl from '../assets/bookshelf.jpg';
-import { SHELF_IMAGE_SIZE, SHELF_SLOTS } from '../lib/bookshelf';
+import { QUOTE_FRAME, SHELF_IMAGE_SIZE, SHELF_SLOTS } from '../lib/bookshelf';
+import FittedQuote from './FittedQuote';
 
 const median = (arr) => {
   arr.sort((a, b) => a - b);
@@ -83,9 +84,9 @@ function fitTitle(title, slot) {
 
 // The library shelf: a bookshelf photo whose real spines are the places a
 // book can stand. Empty places are blank spines; a placed book's title is
-// lettered onto its spine. Clicking an empty place can open `menu` in a
-// popover beside that spine (`menuSlot`).
-export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, onSlotClick, menuSlot, menu, onMenuClose }) {
+// lettered onto its spine. The framed print shows the pinned quote. `menu`
+// opens in a popover beside `menuSlot` — a spine index, or 'frame'.
+export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, onSlotClick, quote, onFrameClick, menuSlot, menu, onMenuClose }) {
   const canvasRef = useRef(null);
   const popoverRef = useRef(null);
   const [lums, setLums] = useState(null);
@@ -100,6 +101,9 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0, SHELF_IMAGE_SIZE.w, SHELF_IMAGE_SIZE.h);
+      // The print's paper: per-column medians keep its light falloff and
+      // drop the printed lines of text.
+      blankSpine(ctx, { ...QUOTE_FRAME.mat, dir: 'v' });
       setLums(SHELF_SLOTS.map((slot) => blankSpine(ctx, slot)));
     };
     img.src = shelfUrl;
@@ -141,7 +145,7 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
   // aligned to its top (upper half of the photo) or bottom (lower half).
   let popoverStyle = null;
   if (menuSlot != null) {
-    const s = SHELF_SLOTS[menuSlot];
+    const s = menuSlot === 'frame' ? QUOTE_FRAME.mat : SHELF_SLOTS[menuSlot];
     popoverStyle = {};
     if (s.x + s.w / 2 < W * 0.55) popoverStyle.left = `calc(${pct(s.x + s.w, W)} + 10px)`;
     else popoverStyle.right = `calc(${pct(W - s.x, W)} + 10px)`;
@@ -186,8 +190,18 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
           </button>
         );
       })}
+      <button
+        type="button"
+        className={`reader-photo-frame${menuSlot === 'frame' ? ' menu-open' : ''}`}
+        style={{ left: pct(QUOTE_FRAME.text.x, W), top: pct(QUOTE_FRAME.text.y, H), width: pct(QUOTE_FRAME.text.w, W), height: pct(QUOTE_FRAME.text.h, H) }}
+        onClick={onFrameClick}
+        aria-label="Цитата в рамке"
+        title="Добавить цитату"
+      >
+        {lums && <FittedQuote quote={quote} />}
+      </button>
       {menuSlot != null && (
-        <div ref={popoverRef} className="reader-photo-popover" style={popoverStyle} role="dialog" aria-label="Свободное место">
+        <div ref={popoverRef} className="reader-photo-popover" style={popoverStyle} role="dialog" aria-label={menuSlot === 'frame' ? 'Цитаты' : 'Свободное место'}>
           {menu}
         </div>
       )}

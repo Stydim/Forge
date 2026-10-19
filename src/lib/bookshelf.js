@@ -5,6 +5,13 @@
 // `dir: 'v'` — upright spine (title reads top-to-bottom), 'h' — book lying flat.
 export const SHELF_IMAGE_SIZE = { w: 1600, h: 1200 };
 
+// The framed print on the bottom shelf: `mat` is the paper area whose printed
+// quote gets painted out, `text` the box the saved quote is typeset into.
+export const QUOTE_FRAME = {
+  mat: { x: 112, y: 898, w: 236, h: 252 },
+  text: { x: 134, y: 926, w: 190, h: 206 },
+};
+
 export const SHELF_SLOTS = [
   // Top shelf
   { x: 1064, y: 14, w: 86, h: 328, dir: 'v' },

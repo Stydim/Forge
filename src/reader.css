@@ -224,7 +224,7 @@
 /* Spines are too narrow on phones to open beside, so it drops down over the
    page right under the photo instead. */
 @media (max-width: 640px) {
-  .reader-photo-popover {
+  .reader-photo-shelf .reader-photo-popover {
     left: 0 !important; right: 0 !important; top: calc(100% + 8px) !important; bottom: auto !important;
     width: auto; max-width: none;
   }
@@ -495,3 +495,58 @@
 .reader-addword-result .reader-save-btn { align-self: flex-start; padding: 0 18px; }
 .reader-flashcard-speak { margin-top: -6px; }
 .reader-flashcard-wordrow { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---------- Quotes ---------- */
+/* The framed print on the shelf photo, retypeset with the pinned quote. */
+.reader-photo-frame {
+  position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+.reader-photo-frame:hover, .reader-photo-frame:focus-visible { background: rgba(255, 250, 235, 0.18); outline: none; }
+.reader-photo-frame.menu-open { box-shadow: 0 0 0 2px var(--accent-amber); }
+.reader-quote-box { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; overflow: hidden; }
+.reader-quote-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 0.7em; max-width: 100%;
+  font-family: 'EB Garamond', 'Times New Roman', Georgia, serif; color: #1E1A16; text-align: center;
+  text-shadow: 0 0 1px rgba(30, 26, 22, 0.15);
+}
+.reader-quote-text { font-size: 1em; line-height: 1.22; overflow-wrap: break-word; }
+.reader-quote-author { font-size: 0.5em; letter-spacing: 0.01em; }
+
+/* Popover contents (shelf frame + text selection share them). */
+.reader-selection-popover {
+  --r-ink: var(--text-primary); --r-ink-dim: var(--text-secondary); --r-ink-dimmer: var(--text-tertiary);
+  --r-accent: var(--accent-teal); --r-accent-dark: var(--accent-teal-dark); --r-chip: var(--bg-chip);
+  --r-card: var(--bg-card); --r-border: var(--border-color);
+  font-family: 'Golos Text', system-ui, sans-serif; color: var(--r-ink); z-index: 60;
+}
+.reader-selection-popover button { font: inherit; }
+.reader-selection-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.reader-selection-saved { color: var(--r-accent-dark); font-size: 14px; padding: 6px 0 2px; }
+.reader-quote-form { display: flex; flex-direction: column; gap: 8px; }
+.reader-quote-input, .reader-quote-field {
+  width: 100%; box-sizing: border-box; border: 1.5px solid var(--r-border); border-radius: 12px;
+  background: var(--r-card); color: var(--r-ink); font: inherit; font-size: 14px; outline: none;
+}
+.reader-quote-input { padding: 10px 12px; resize: vertical; min-height: 84px; font-family: 'EB Garamond', Georgia, serif; font-size: 16px; line-height: 1.35; }
+.reader-quote-field { min-height: 38px; padding: 0 12px; }
+.reader-quote-input:focus, .reader-quote-field:focus { border-color: var(--r-accent); }
+.reader-quote-actions { display: flex; align-items: center; gap: 8px; }
+.reader-quote-actions .reader-btn-solid { min-height: 40px; padding: 0 16px; font-size: 14px; }
+.reader-quote-list { display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow-y: auto; }
+.reader-quote-item { display: flex; align-items: flex-start; gap: 4px; border-radius: 12px; }
+.reader-quote-item.current { background: var(--r-chip); }
+.reader-page .reader-quote-item-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+  border: 0; background: transparent; cursor: pointer; text-align: left; border-radius: 12px; color: var(--r-ink);
+}
+.reader-page .reader-quote-item-main:hover { background: var(--r-chip); }
+.reader-quote-item-text {
+  font-family: 'EB Garamond', Georgia, serif; font-size: 15px; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.reader-quote-item-meta { font-size: 12px; color: var(--r-ink-dim); }
+
+/* Words are spans (not buttons) so a drag can select across them. */
+.reader-word { display: inline; }

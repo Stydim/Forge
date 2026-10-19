@@ -5,6 +5,7 @@ import * as api from '../lib/api';
 import { useReaderSettings } from '../lib/readerSettings';
 import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
 import SpeakButton from '../components/SpeakButton';
+import SelectionQuote from '../components/SelectionQuote';
 
 // The spread shows original and translation as two separate pages side by
 // side, so it gets half as many paragraphs per page as the stacked modes.
@@ -29,19 +30,29 @@ function splitWords(text) {
   return parts;
 }
 
+// Words are spans with a button role rather than <button>s: a drag that
+// starts on a <button> never becomes a text selection, and selecting several
+// words is how a quote gets saved. A click that ends a selection isn't a tap.
 function TappableText({ text, onWordTap, activeWord }) {
   const parts = useMemo(() => splitWords(text), [text]);
+  const tap = (e, word) => {
+    e.stopPropagation();
+    if (window.getSelection()?.toString().trim()) return;
+    onWordTap(word);
+  };
   return (
     <>
       {parts.map((p, i) => (p.word ? (
-        <button
+        <span
           key={i}
-          type="button"
+          role="button"
+          tabIndex={0}
           className={`reader-word${activeWord && activeWord.toLowerCase() === p.text.toLowerCase() ? ' active' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onWordTap(p.text); }}
+          onClick={(e) => tap(e, p.text)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(e, p.text); } }}
         >
           {p.text}
-        </button>
+        </span>
       ) : (
         <span key={i}>{p.text}</span>
       )))}
@@ -49,7 +60,7 @@ function TappableText({ text, onWordTap, activeWord }) {
   );
 }
 
-export default function ReaderPage({ onProgress, savedWords }) {
+export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
   const { bookId } = useParams();
   const navigate = useNavigate();
 
@@ -68,6 +79,7 @@ export default function ReaderPage({ onProgress, savedWords }) {
   // side: which text the word was tapped in ('orig' | 'tr'); lang: its language.
   const [gloss, setGloss] = useState(null); // { word, context, side, lang, data, loading, error }
   const [speakError, setSpeakError] = useState(null);
+  const textRef = useRef(null);
 
   const loadPage = useCallback(async (start, size) => {
     setPageLoading(true);
@@ -203,7 +215,8 @@ export default function ReaderPage({ onProgress, savedWords }) {
       </nav>
 
       <div className="reader-reading-layout">
-        <main className="reader-main">
+        <main className="reader-main" ref={textRef}>
+          <SelectionQuote containerRef={textRef} book={book} onSave={onSaveQuote} />
           <header className="reader-book-header">
             <div className="reader-book-header-meta">{book.author || ' '}</div>
             <h1 className="reader-h1">{book.title}</h1>
@@ -307,7 +320,7 @@ export default function ReaderPage({ onProgress, savedWords }) {
 
         <aside className="reader-aside">
           <section className="reader-gloss-panel" aria-label="Глосса">
-            {!gloss && <div className="reader-gloss-empty">Нажмите на любое слово — в оригинале или в переводе, — чтобы увидеть перевод и добавить его в колоду.</div>}
+            {!gloss && <div className="reader-gloss-empty">Нажмите на любое слово — в оригинале или в переводе, — чтобы увидеть перевод и добавить его в колоду. Выделите несколько слов, чтобы сохранить цитату.</div>}
             {gloss?.loading && <div className="reader-gloss-empty">Ищу перевод…</div>}
             {gloss?.error && <div className="reader-error">{gloss.error}</div>}
             {gloss?.data && (

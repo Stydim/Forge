@@ -656,6 +656,52 @@ app.get('/api/books/:id/paragraphs', async (req, res) => {
   }
 });
 
+// --- Reader: quotes (shown in the frame on the library shelf) ---
+// The frame shows the pinned quote; a newly saved quote becomes the pinned one.
+app.get('/api/quotes', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.quotes order by pinned desc, created_at desc');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/quotes', async (req, res) => {
+  try {
+    const text = (req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Пустая цитата' });
+    if (text.length > 2000) return res.status(400).json({ error: 'Слишком длинная цитата — не больше 2000 символов' });
+    const author = (req.body.author || '').trim() || null;
+    let bookId = req.body.book_id || null;
+    let bookTitle = null;
+    if (bookId) {
+      const b = await pool.query('select title from forge.books where id = $1', [bookId]);
+      if (b.rows.length) bookTitle = b.rows[0].title; else bookId = null;
+    }
+    await pool.query('update forge.quotes set pinned = false where pinned');
+    const { rows } = await pool.query(
+      'insert into forge.quotes (text, author, book_id, book_title, pinned) values ($1,$2,$3,$4,true) returning *',
+      [text, author, bookId, bookTitle]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.post('/api/quotes/:id/pin', async (req, res) => {
+  try {
+    await pool.query('update forge.quotes set pinned = (id = $1) where pinned or id = $1', [req.params.id]);
+    const { rows } = await pool.query('select * from forge.quotes where id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Цитата не найдена' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/quotes/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.quotes where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- Reader: text-to-speech (ElevenLabs, cached) ---
 // One multilingual model reads both Russian and English; the voice can be
 // set per language. Generated audio is cached by (voice, model, text) so
@@ -805,6 +851,17 @@ async function migrate() {
     create table if not exists forge.tts_cache (
       key text primary key,
       audio bytea not null,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.quotes (
+      id uuid primary key default gen_random_uuid(),
+      text text not null,
+      author text,
+      book_id uuid references forge.books(id) on delete set null,
+      book_title text,
+      pinned boolean not null default false,
       created_at timestamptz not null default now()
     )
   `);
