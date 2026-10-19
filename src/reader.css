@@ -452,3 +452,46 @@
   .reader-toolbar { gap: 4px; }
   .reader-mode-group { order: 3; width: 100%; justify-content: center; }
 }
+
+/* ---------- Text-to-speech buttons ---------- */
+.reader-page .reader-speak-btn {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: transparent; color: var(--r-ink-dim); vertical-align: middle;
+  font-size: 0; line-height: 0;
+}
+.reader-page .reader-speak-btn:hover { background: var(--r-chip); color: var(--r-ink); }
+.reader-page .reader-speak-btn.playing { background: var(--r-accent); color: var(--text-inverse); }
+.reader-page .reader-speak-btn.loading svg { animation: reader-spin 0.9s linear infinite; }
+.reader-page .reader-speak-btn.error { color: var(--accent-red); }
+@keyframes reader-spin { to { transform: rotate(360deg); } }
+
+/* Per-paragraph speakers sit at the end of the text and only show on the
+   active paragraph (or while hovering one, on devices with a mouse). */
+.reader-page .reader-para-speak { margin-left: 6px; width: 28px; height: 28px; }
+.reader-para-row:not(.active) .reader-para-speak:not(.playing):not(.loading),
+.reader-para-stack-row:not(.active) .reader-para-speak:not(.playing):not(.loading) { visibility: hidden; }
+@media (hover: hover) {
+  .reader-para-row:hover .reader-para-speak,
+  .reader-para-stack-row:hover .reader-para-speak { visibility: visible; }
+}
+
+.reader-gloss-word-row { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.reader-gloss-example-src { display: flex; align-items: flex-start; gap: 4px; }
+.reader-gloss-example-src .reader-speak-btn { width: 24px; height: 24px; margin-top: -3px; }
+.reader-speak-error { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 0; font-size: 13px; }
+
+/* Flashcards: add any word by hand + speakers */
+.reader-addword { display: flex; flex-wrap: wrap; gap: 8px; max-width: 540px; margin: 18px 0 4px; }
+.reader-addword-input {
+  flex: 1 1 220px; min-height: 46px; padding: 0 16px; border-radius: 23px;
+  border: 1.5px solid var(--r-border); background: var(--r-card); color: var(--r-ink); outline: none; font-size: 15px;
+}
+.reader-addword-input:focus { border-color: var(--r-accent); }
+.reader-addword-result {
+  max-width: 540px; background: var(--r-card); border: 1px solid var(--r-border); border-radius: 20px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-card); margin-top: 8px;
+}
+.reader-addword-result .reader-save-btn { align-self: flex-start; padding: 0 18px; }
+.reader-flashcard-speak { margin-top: -6px; }
+.reader-flashcard-wordrow { display: inline-flex; align-items: center; gap: 8px; }

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ArrowLeftRight, X } from 'lucide-react';
 import * as api from '../lib/api';
 import { useReaderSettings } from '../lib/readerSettings';
 import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
+import SpeakButton from '../components/SpeakButton';
 
 // The spread shows original and translation as two separate pages side by
 // side, so it gets half as many paragraphs per page as the stacked modes.
@@ -64,7 +65,9 @@ export default function ReaderPage({ onProgress, savedWords }) {
   const pageSize = mode === 'side' ? PAGE_SIZE_SIDE : PAGE_SIZE_STACK;
   const [activeIdx, setActiveIdx] = useState(0);
 
-  const [gloss, setGloss] = useState(null); // { word, context, data, loading, error }
+  // side: which text the word was tapped in ('orig' | 'tr'); lang: its language.
+  const [gloss, setGloss] = useState(null); // { word, context, side, lang, data, loading, error }
+  const [speakError, setSpeakError] = useState(null);
 
   const loadPage = useCallback(async (start, size) => {
     setPageLoading(true);
@@ -130,15 +133,20 @@ export default function ReaderPage({ onProgress, savedWords }) {
     navigate('/reader');
   };
 
-  const openWordGloss = useCallback(async (word, context, idx) => {
+  // Words can be looked up in either text: in the translation the lookup just
+  // runs the other way (target -> source language).
+  const openWordGloss = useCallback(async (word, context, idx, side) => {
     setActiveIdx(idx);
     if (!book) return;
-    setGloss({ word, context, data: null, loading: true, error: null });
+    const lang = side === 'orig' ? book.source_lang : book.target_lang;
+    const other = side === 'orig' ? book.target_lang : book.source_lang;
+    const base = { word, context, side, lang };
+    setGloss({ ...base, data: null, loading: true, error: null });
     try {
-      const data = await api.glossWord(word, context, book.source_lang, book.target_lang);
-      setGloss({ word, context, data, loading: false, error: null });
+      const data = await api.glossWord(word, context, lang, other);
+      setGloss({ ...base, data, loading: false, error: null });
     } catch (err) {
-      setGloss({ word, context, data: null, loading: false, error: err.message });
+      setGloss({ ...base, data: null, loading: false, error: err.message });
     }
   }, [book]);
 
@@ -152,7 +160,7 @@ export default function ReaderPage({ onProgress, savedWords }) {
       await savedWords.save({
         word: gloss.data.base_form,
         base_form: gloss.data.base_form,
-        source_lang: book.source_lang,
+        source_lang: gloss.lang,
         translation: gloss.data.translation,
         part_of_speech: gloss.data.part_of_speech,
         example_source: gloss.data.example_source,
@@ -171,6 +179,15 @@ export default function ReaderPage({ onProgress, savedWords }) {
     );
   }
   if (!book) return <div className="reader-page reader-loading">Загрузка…</div>;
+
+  // Paragraph text with every word tappable; the tapped word stays
+  // highlighted only on the side it was tapped on.
+  const renderText = (p, i, side) => {
+    const text = side === 'orig' ? p.text : p.translation;
+    if (!text) return '…';
+    const active = i === activeIdx && gloss?.side === side ? gloss.word : null;
+    return <TappableText text={text} activeWord={active} onWordTap={(w) => openWordGloss(w, text, i, side)} />;
+  };
 
   const progress = book.paragraph_count ? Math.min(100, Math.round((pageStart / book.paragraph_count) * 100)) : 0;
   const leftLang = swapped ? book.target_lang : book.source_lang;
@@ -207,12 +224,18 @@ export default function ReaderPage({ onProgress, savedWords }) {
               {paragraphs.map((p, i) => {
                 const on = i === activeIdx;
                 const original = p.text;
-                const translation = p.translation ?? '…';
-                const tappable = (
-                  <TappableText text={original} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
+                const origCell = (
+                  <span className="reader-para-text" style={origStyle}>
+                    {renderText(p, i, 'orig')}
+                    <SpeakButton className="reader-para-speak" text={original} lang={book.source_lang} onError={setSpeakError} />
+                  </span>
                 );
-                const origCell = <span className="reader-para-text" style={origStyle}>{tappable}</span>;
-                const trCell = <span className="reader-para-text reader-para-text-tr" style={trStyle}>{translation}</span>;
+                const trCell = (
+                  <span className="reader-para-text reader-para-text-tr" style={trStyle}>
+                    {renderText(p, i, 'tr')}
+                    {p.translation && <SpeakButton className="reader-para-speak" text={p.translation} lang={book.target_lang} onError={setSpeakError} />}
+                  </span>
+                );
                 return (
                   <div key={p.id} className={`reader-para-row${on ? ' active' : ''}`} onClick={() => setActiveIdx(i)}>
                     {swapped ? trCell : origCell}
@@ -228,17 +251,21 @@ export default function ReaderPage({ onProgress, savedWords }) {
             <div className="reader-paragraphs stack">
               {paragraphs.map((p, i) => {
                 const on = i === activeIdx;
-                const original = p.text;
-                const translation = p.translation ?? '…';
                 const showTranslation = mode === 'inter' || on;
                 return (
                   <div key={p.id} className={`reader-para-stack-row${on ? ' active' : ''}`} onClick={() => setActiveIdx(i)}>
                     <span className="reader-para-num-inline">{String(p.position + 1).padStart(2, '0')}</span>
                     <div className="reader-para-stack-text">
                       <p className="reader-para-original" style={origStyle}>
-                        <TappableText text={original} activeWord={on ? gloss?.word : null} onWordTap={(w) => openWordGloss(w, original, i)} />
+                        {renderText(p, i, 'orig')}
+                        <SpeakButton className="reader-para-speak" text={p.text} lang={book.source_lang} onError={setSpeakError} />
                       </p>
-                      {showTranslation && <p className="reader-para-translation" style={trStyle}>{translation}</p>}
+                      {showTranslation && (
+                        <p className="reader-para-translation" style={trStyle}>
+                          {renderText(p, i, 'tr')}
+                          {p.translation && <SpeakButton className="reader-para-speak" text={p.translation} lang={book.target_lang} onError={setSpeakError} />}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -280,13 +307,16 @@ export default function ReaderPage({ onProgress, savedWords }) {
 
         <aside className="reader-aside">
           <section className="reader-gloss-panel" aria-label="Глосса">
-            {!gloss && <div className="reader-gloss-empty">Нажмите на любое слово в тексте, чтобы увидеть перевод.</div>}
+            {!gloss && <div className="reader-gloss-empty">Нажмите на любое слово — в оригинале или в переводе, — чтобы увидеть перевод и добавить его в колоду.</div>}
             {gloss?.loading && <div className="reader-gloss-empty">Ищу перевод…</div>}
             {gloss?.error && <div className="reader-error">{gloss.error}</div>}
             {gloss?.data && (
               <>
                 <div className="reader-gloss-head">
-                  <span className="reader-gloss-word">{gloss.data.base_form}</span>
+                  <span className="reader-gloss-word-row">
+                    <span className="reader-gloss-word">{gloss.data.base_form}</span>
+                    <SpeakButton text={gloss.data.base_form} lang={gloss.lang} size={18} onError={setSpeakError} />
+                  </span>
                   <button type="button" className="reader-gloss-close" onClick={() => setGloss(null)} aria-label="Закрыть">
                     <X size={16} />
                   </button>
@@ -295,7 +325,10 @@ export default function ReaderPage({ onProgress, savedWords }) {
                 <div className="reader-gloss-translation">{gloss.data.translation}</div>
                 {gloss.data.example_source && (
                   <div className="reader-gloss-example">
-                    <div>{gloss.data.example_source}</div>
+                    <div className="reader-gloss-example-src">
+                      <span>{gloss.data.example_source}</span>
+                      <SpeakButton text={gloss.data.example_source} lang={gloss.lang} size={14} onError={setSpeakError} />
+                    </div>
                     <div className="reader-gloss-example-tr">{gloss.data.example_translation}</div>
                   </div>
                 )}
@@ -305,6 +338,13 @@ export default function ReaderPage({ onProgress, savedWords }) {
               </>
             )}
           </section>
+
+          {speakError && (
+            <div className="reader-error reader-speak-error">
+              <span>{speakError}</span>
+              <button type="button" className="reader-gloss-close" onClick={() => setSpeakError(null)} aria-label="Закрыть"><X size={14} /></button>
+            </div>
+          )}
 
           <Link to="/reader/cards" className="reader-deck-card">
             <div className="reader-deck-card-row">

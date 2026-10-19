@@ -4,6 +4,7 @@ import pg from 'pg';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createHash } from 'crypto';
 import { parseBookFile } from './server/bookParsers.js';
 
 // pg's default DATE parser builds a JS Date at local-timezone midnight, which
@@ -655,6 +656,56 @@ app.get('/api/books/:id/paragraphs', async (req, res) => {
   }
 });
 
+// --- Reader: text-to-speech (ElevenLabs, cached) ---
+// One multilingual model reads both Russian and English; the voice can be
+// set per language. Generated audio is cached by (voice, model, text) so
+// replaying a word or paragraph never costs a second ElevenLabs request.
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const ELEVENLABS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
+const ELEVENLABS_VOICES = {
+  ru: process.env.ELEVENLABS_VOICE_ID_RU || process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb',
+  en: process.env.ELEVENLABS_VOICE_ID_EN || process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb',
+};
+const TTS_MAX_CHARS = 2500;
+
+app.post('/api/tts', async (req, res) => {
+  try {
+    const text = (req.body?.text || '').trim();
+    const lang = req.body?.lang === 'en' ? 'en' : 'ru';
+    if (!text) return res.status(400).json({ error: 'Нет текста для озвучки' });
+    if (text.length > TTS_MAX_CHARS) return res.status(400).json({ error: `Слишком длинный текст для озвучки (больше ${TTS_MAX_CHARS} символов)` });
+
+    const voice = ELEVENLABS_VOICES[lang];
+    const key = createHash('sha256').update(`${voice}\n${ELEVENLABS_MODEL}\n${text}`).digest('hex');
+    const cached = await pool.query('select audio from forge.tts_cache where key = $1', [key]);
+    if (cached.rows.length) {
+      res.set({ 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+      return res.send(cached.rows[0].audio);
+    }
+
+    if (!ELEVENLABS_API_KEY) return res.status(503).json({ error: 'Озвучка не настроена: на сервере нет ELEVENLABS_API_KEY' });
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+      method: 'POST',
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({ text, model_id: ELEVENLABS_MODEL }),
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      console.error(`ElevenLabs ${r.status}: ${body.slice(0, 500)}`);
+      if (r.status === 401 || body.includes('invalid_api_key')) throw new Error('ElevenLabs не принял ключ API — нужен сам ключ (начинается с sk_), а не его ID');
+      if (r.status === 429 || body.includes('quota')) throw new Error('ElevenLabs: закончилась квота или слишком много запросов');
+      throw new Error(`ElevenLabs ${r.status}: ${body.slice(0, 200)}`);
+    }
+    const audio = Buffer.from(await r.arrayBuffer());
+    await pool.query('insert into forge.tts_cache (key, audio) values ($1, $2) on conflict (key) do nothing', [key, audio]);
+    res.set({ 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+    res.send(audio);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // --- Reader: word gloss (cached AI dictionary lookups) ---
 app.post('/api/words/gloss', async (req, res) => {
   try {
@@ -750,6 +801,13 @@ app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')));
 // db/schema.sql was applied — keeps deploys self-sufficient.
 async function migrate() {
   await pool.query('alter table forge.books add column if not exists shelf_slot integer');
+  await pool.query(`
+    create table if not exists forge.tts_cache (
+      key text primary key,
+      audio bytea not null,
+      created_at timestamptz not null default now()
+    )
+  `);
 }
 
 migrate()

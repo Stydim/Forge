@@ -137,3 +137,10 @@ create table forge.saved_words (
   next_review_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+-- ElevenLabs text-to-speech cache: key = sha256(voice, model, text).
+create table forge.tts_cache (
+  key text primary key,
+  audio bytea not null,
+  created_at timestamptz not null default now()
+);
