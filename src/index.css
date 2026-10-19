@@ -11,6 +11,10 @@
 html {
   font-size: 16px;
   overflow-x: hidden;
+  /* Stop mobile Chrome's text autosizing from inflating text sized to fit
+     a box (book spines, the quote frame). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {

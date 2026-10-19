@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import shelfUrl from '../assets/bookshelf.jpg';
 import { QUOTE_FRAME, SHELF_IMAGE_SIZE, SHELF_SLOTS } from '../lib/bookshelf';
@@ -177,6 +177,37 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
     };
   }, [menuSlot, onMenuClose]);
 
+  // fitTitle sizes titles from canvas measurements, but phones can render
+  // text bigger than asked (Android WebView's system font scale, browser
+  // font boosting). So after layout, measure each title as actually rendered
+  // and shrink it into its spine with a transform, which no text scaling
+  // affects.
+  const shelfRef = useRef(null);
+  useLayoutEffect(() => {
+    const root = shelfRef.current;
+    if (!root) return undefined;
+    const correct = () => {
+      for (const title of root.querySelectorAll('.reader-photo-slot-title')) {
+        title.style.transform = '';
+        const slot = title.parentElement;
+        const vertical = slot.classList.contains('vertical');
+        let along = 0;
+        for (const line of title.children) along = Math.max(along, vertical ? line.scrollHeight : line.scrollWidth);
+        const across = vertical ? title.scrollWidth : title.scrollHeight;
+        const k = Math.min(
+          1,
+          ((vertical ? slot.clientHeight : slot.clientWidth) * 0.9) / along,
+          ((vertical ? slot.clientWidth : slot.clientHeight) * 0.92) / across
+        );
+        if (k < 1) title.style.transform = `scale(${k})`;
+      }
+    };
+    correct();
+    const ro = new ResizeObserver(correct);
+    ro.observe(root);
+    return () => ro.disconnect();
+  });
+
   const { w: W, h: H } = SHELF_IMAGE_SIZE;
   const fits = useMemo(() => {
     const map = new Map();
@@ -201,7 +232,7 @@ export default function PhotoBookshelf({ books, selectedId, placing, dimmedIds, 
   }
 
   return (
-    <div className={`reader-photo-shelf${placing ? ' placing' : ''}${lums ? ' ready' : ''}`}>
+    <div ref={shelfRef} className={`reader-photo-shelf${placing ? ' placing' : ''}${lums ? ' ready' : ''}`}>
       <canvas ref={canvasRef} width={W} height={H} className="reader-photo-shelf-canvas" aria-hidden="true" />
       {SHELF_SLOTS.map((slot, i) => {
         const fit = fits.get(i);
