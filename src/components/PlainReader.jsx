@@ -1,12 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bookmark, BookmarkMinus, Check, Copy, NotebookPen, Quote, Share2, Trash2 } from 'lucide-react';
+import { Bookmark, BookmarkMinus, Check, ChevronLeft, ChevronRight, Copy, NotebookPen, Pause, Play, Quote, Share2, Trash2 } from 'lucide-react';
 import * as api from '../lib/api';
 
 // Highlight palette, as in the selection menu: soft tints that keep text
 // readable on the page.
 const COLORS = ['#D3D3DB', '#D9B8F5', '#BDBDEB', '#F5D9A8', '#BEEBF5', '#F2B49E', '#BDBDBD', '#A6D9AE'];
 const MENU_W = 360;
+const FLIP_MS = 550;
+// Auto page-turning: seconds per page, remembered per device.
+const AUTO_KEY = 'forge:reader-auto-seconds';
+const AUTO_SPEEDS = [10, 15, 20, 30, 45, 60, 90, 120];
+function loadAutoSeconds() {
+  try { const v = Number(localStorage.getItem(AUTO_KEY)); return AUTO_SPEEDS.includes(v) ? v : 30; } catch { return 30; }
+}
 
 // Character offset of (node, offset) from the start of paragraph element `p`.
 function offsetIn(p, node, offset) {
@@ -39,10 +46,12 @@ function segments(text, pos, highlights) {
   return out;
 }
 
-// "Читалка" mode: the whole original book as continuous text — no
-// translation — with highlights in colours, notes, bookmarks, and a
-// selection menu (colours / note / bookmark / copy / share / quote / delete).
-// Reading position follows the scroll.
+// "Читалка" mode: the original book (no translation) laid out as pages
+// like an e-reader — CSS columns, one page-sized column in view at a time —
+// flipped with an animated page turn (buttons, arrow keys, swipes) or
+// automatically at a chosen speed. Highlights in colours, notes, bookmarks
+// and a selection menu (colours / note / bookmark / copy / share / quote /
+// delete); bookmarks and notes are listed in a sticky side panel.
 export default function PlainReader({ book, textStyle, onProgress, onPosition, onSaveQuote }) {
   const [paragraphs, setParagraphs] = useState(null);
   const [error, setError] = useState(null);
@@ -51,9 +60,17 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   const [menu, setMenu] = useState(null); // { range | highlight, top, left }
   const [noteDraft, setNoteDraft] = useState(null); // string while editing a note
   const [toast, setToast] = useState(null);
-  const [listOpen, setListOpen] = useState(false);
-  const articleRef = useRef(null);
+  const articleRef = useRef(null); // the column flow holding the book
+  const pageRef = useRef(null); // the page viewport
+  const flipLayerRef = useRef(null);
   const menuRef = useRef(null);
+  // Pagination: geometry of the column flow and each paragraph's first page.
+  const [layout, setLayout] = useState(null); // { step, pageCount, startPages }
+  const [page, setPage] = useState(0);
+  const pageStateRef = useRef({ page: 0, anchor: book.current_paragraph });
+  const flippingRef = useRef(false);
+  const [autoOn, setAutoOn] = useState(false);
+  const [autoSeconds, setAutoSeconds] = useState(loadAutoSeconds);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,55 +85,141 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
     return () => { cancelled = true; };
   }, [book.id]);
 
-  const scrollToPara = useCallback((pos, smooth) => {
-    const el = articleRef.current?.querySelector(`[data-pos="${pos}"]`);
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 24;
-    window.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+  // Lays the book out into pages and keeps the reader on the same paragraph
+  // (the "anchor") across re-layouts: resize, font changes, webfont load.
+  const relayout = useCallback(() => {
+    const flow = articleRef.current;
+    if (!flow) return;
+    const width = flow.clientWidth;
+    const gap = parseFloat(getComputedStyle(flow).columnGap) || 0;
+    const step = width + gap;
+    if (!width) return;
+    const prev = flow.style.transform;
+    flow.style.transform = 'none';
+    const origin = flow.getBoundingClientRect().left;
+    const pageCount = Math.max(1, Math.round((flow.scrollWidth + gap) / step));
+    const startPages = [...flow.querySelectorAll('[data-pos]')].map((el) => Math.floor((el.getBoundingClientRect().left - origin + 1) / step));
+    flow.style.transform = prev;
+    setLayout({ step, pageCount, startPages });
+    const anchor = Math.min(pageStateRef.current.anchor, startPages.length - 1);
+    const next = Math.min(pageCount - 1, Math.max(0, startPages[anchor] ?? 0));
+    pageStateRef.current.page = next;
+    setPage(next);
   }, []);
 
-  // Open where the reader left off.
-  const openedRef = useRef(false);
-  useEffect(() => {
-    if (!paragraphs || openedRef.current) return;
-    openedRef.current = true;
-    const pos = Math.min(book.current_paragraph, paragraphs.length - 1);
-    if (pos > 0) requestAnimationFrame(() => scrollToPara(pos, false));
-  }, [paragraphs, book.current_paragraph, scrollToPara]);
-
-  // Reading position = first paragraph still visible at the top; saved a
-  // moment after scrolling stops.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!paragraphs) return undefined;
-    let raf = 0;
-    let saveTimer = null;
-    let pending = null; // position scrolled to but not saved yet
-    let last = null;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const els = articleRef.current?.querySelectorAll('[data-pos]') || [];
-        let pos = 0;
-        for (const el of els) {
-          if (el.getBoundingClientRect().bottom > 80) { pos = Number(el.dataset.pos); break; }
-        }
-        if (pos === last) return;
-        last = pos;
-        onPosition(pos);
-        pending = pos;
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => { onProgress(book.id, pos); pending = null; }, 1200);
-      });
+    relayout();
+    const ro = new ResizeObserver(() => relayout());
+    if (pageRef.current) ro.observe(pageRef.current);
+    let cancelled = false;
+    document.fonts?.ready.then(() => { if (!cancelled) relayout(); });
+    return () => { cancelled = true; ro.disconnect(); };
+  }, [paragraphs, relayout, textStyle.fontSize, textStyle.fontFamily]);
+
+  // Paragraph a page is "at": the first one starting on it, or — if none
+  // does — the one running across it. Re-opening (or re-laying out) goes to
+  // that paragraph's first page, i.e. back to this same page.
+  const paraAtPage = useCallback((pg) => {
+    const sp = layout?.startPages || [];
+    let lo = 0, hi = sp.length - 1, first = sp.length;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (sp[mid] >= pg) { first = mid; hi = mid - 1; } else lo = mid + 1;
+    }
+    const idx = first < sp.length && sp[first] === pg ? first : Math.max(0, first - 1);
+    return paragraphs?.[idx]?.position ?? 0;
+  }, [layout, paragraphs]);
+
+  // Reading position follows the page; saved shortly after the last turn
+  // (and right away when leaving the mode or the page).
+  const saveRef = useRef({ timer: null, pending: null });
+  useEffect(() => {
+    if (!layout) return;
+    const pos = paraAtPage(page);
+    pageStateRef.current = { page, anchor: pos };
+    onPosition(pos);
+    const sv = saveRef.current;
+    sv.pending = pos;
+    clearTimeout(sv.timer);
+    sv.timer = setTimeout(() => { onProgress(book.id, pos); sv.pending = null; }, 800);
+  }, [page, layout, paraAtPage, onPosition, onProgress, book.id]);
+  useEffect(() => () => {
+    const sv = saveRef.current;
+    clearTimeout(sv.timer);
+    if (sv.pending != null) onProgress(book.id, sv.pending);
+  }, [book.id, onProgress]);
+
+  // Page turn: a snapshot of the current page is laid over the new one and
+  // swings away around the spine (left edge going forward, right going back).
+  const turnTo = useCallback((target) => {
+    if (!layout || flippingRef.current) return;
+    const to = Math.min(layout.pageCount - 1, Math.max(0, target));
+    const from = pageStateRef.current.page;
+    if (to === from) return;
+    const flow = articleRef.current;
+    const layer = flipLayerRef.current;
+    if (flow && layer && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const sheet = document.createElement('div');
+      sheet.className = `reader-flip-sheet ${to > from ? 'next' : 'prev'}`;
+      sheet.appendChild(flow.cloneNode(true));
+      layer.appendChild(sheet);
+      flippingRef.current = true;
+      setTimeout(() => { sheet.remove(); flippingRef.current = false; }, FLIP_MS);
+    }
+    pageStateRef.current.page = to;
+    setPage(to);
+  }, [layout]);
+
+  // Page a list item lives on: a bookmark's paragraph start, or for a
+  // highlight the page its marked text actually begins on (it may sit
+  // further into a paragraph that started pages earlier).
+  const itemPage = (kind, item) => {
+    if (!layout) return 0;
+    if (kind === 'highlight') {
+      const flow = articleRef.current;
+      const mark = flow?.querySelector(`mark[data-hid="${item.id}"]`);
+      if (mark) return Math.floor((mark.getBoundingClientRect().left - flow.getBoundingClientRect().left + 1) / layout.step);
+    }
+    const pos = kind === 'highlight' ? item.start_para : item.paragraph;
+    return layout.startPages[paragraphs.findIndex((p) => p.position === pos)] ?? 0;
+  };
+
+  // Arrow keys / PageUp / PageDown / space turn pages (not while typing).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); turnTo(pageStateRef.current.page + 1); }
+      if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); turnTo(pageStateRef.current.page - 1); }
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(raf);
-      clearTimeout(saveTimer);
-      // Leaving the mode/page right after scrolling: save where we got to.
-      if (pending != null) onProgress(book.id, pending);
-    };
-  }, [paragraphs, book.id, onProgress, onPosition]);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [turnTo]);
+
+  // Horizontal swipe on the page turns it (unless it ended a text selection).
+  const touchRef = useRef(null);
+  const onTouchStart = (e) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const start = touchRef.current;
+    touchRef.current = null;
+    if (!start || window.getSelection()?.toString().trim()) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turnTo(pageStateRef.current.page + (dx < 0 ? 1 : -1));
+  };
+
+  const changeAutoSeconds = (sec) => {
+    setAutoSeconds(sec);
+    try { localStorage.setItem(AUTO_KEY, String(sec)); } catch { /* private mode */ }
+  };
+  const lastPage = layout ? layout.pageCount - 1 : 0;
+  // The pacer bar fills over autoSeconds, then the page turns; it pauses while
+  // the selection menu is open, and stops on the last page.
+  const onPacerEnd = () => {
+    if (page >= lastPage) setAutoOn(false);
+    else turnTo(page + 1);
+  };
 
   const placeMenu = (rect) => {
     const vw = document.documentElement.clientWidth;
@@ -164,7 +267,7 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   useEffect(() => {
     if (!menu) return undefined;
     const onDown = (e) => {
-      if (menuRef.current?.contains(e.target) || articleRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target) || pageRef.current?.contains(e.target)) return;
       setMenu(null);
     };
     const onKey = (e) => { if (e.key === 'Escape') setMenu(null); };
@@ -312,18 +415,77 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   const activeColor = menu?.highlight?.color;
 
   return (
-    <div className="reader-plain-wrap">
-      <div className="reader-plain-bar">
-        <button type="button" className={`reader-filter-chip${listOpen ? ' active' : ''}`} onClick={() => setListOpen((o) => !o)}>
-          <Bookmark size={14} /> Закладки и заметки{listItems.length ? ` (${listItems.length})` : ''}
-        </button>
+    <div className="reader-plain-layout">
+      <div className="reader-plain-main">
+        <div
+          ref={pageRef}
+          className="reader-plain-page"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <article
+            ref={articleRef}
+            className="reader-plain"
+            style={{ ...textStyle, transform: layout ? `translateX(${-page * layout.step}px)` : undefined }}
+            lang={book.source_lang}
+            onClick={onArticleClick}
+          >
+            {body}
+          </article>
+          <div ref={flipLayerRef} className="reader-flip-layer" aria-hidden="true" />
+          <button type="button" className="reader-page-edge left" onClick={() => turnTo(page - 1)} disabled={page <= 0} aria-label="Предыдущая страница">
+            <ChevronLeft size={22} />
+          </button>
+          <button type="button" className="reader-page-edge right" onClick={() => turnTo(page + 1)} disabled={page >= lastPage} aria-label="Следующая страница">
+            <ChevronRight size={22} />
+          </button>
+          {autoOn && (
+            <div
+              key={`${page}-${autoSeconds}`}
+              className="reader-pacer"
+              style={{ animationDuration: `${autoSeconds}s`, animationPlayState: menu ? 'paused' : 'running' }}
+              onAnimationEnd={onPacerEnd}
+            />
+          )}
+        </div>
+
+        <div className="reader-plain-controls">
+          <button type="button" className="reader-nav-btn" onClick={() => turnTo(page - 1)} disabled={page <= 0} aria-label="Назад">
+            <ChevronLeft size={18} />
+          </button>
+          <span className="reader-plain-pageno">{layout ? `стр. ${page + 1} из ${layout.pageCount}` : '…'}</span>
+          <button type="button" className="reader-nav-btn" onClick={() => turnTo(page + 1)} disabled={page >= lastPage} aria-label="Вперёд">
+            <ChevronRight size={18} />
+          </button>
+          <span className="reader-toolbar-sep" />
+          <button
+            type="button"
+            className={`reader-auto-btn${autoOn ? ' active' : ''}`}
+            onClick={() => setAutoOn((on) => !on)}
+            disabled={page >= lastPage && !autoOn}
+            title="Автоматически перелистывать страницы"
+          >
+            {autoOn ? <Pause size={16} /> : <Play size={16} />} Автолистание
+          </button>
+          <label className="reader-auto-speed">
+            <span>Скорость</span>
+            <select value={autoSeconds} onChange={(e) => changeAutoSeconds(Number(e.target.value))} aria-label="Секунд на страницу">
+              {AUTO_SPEEDS.map((sec) => <option key={sec} value={sec}>{sec} с / стр.</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
-      {listOpen && (
+      <aside className="reader-plain-aside" aria-label="Закладки и заметки">
+        <div className="reader-plain-aside-head">
+          <Bookmark size={15} /> Закладки и заметки{listItems.length ? ` · ${listItems.length}` : ''}
+        </div>
         <div className="reader-plain-list">
           {listItems.length === 0 && <div className="reader-shelf-panel-sub">Пока пусто. Выделите текст, чтобы отметить его цветом, оставить заметку или поставить закладку.</div>}
-          {listItems.map(({ kind, pos, item }) => (
-            <button key={`${kind}-${item.id}`} type="button" className="reader-plain-list-item" onClick={() => scrollToPara(pos, true)}>
+          {listItems.map(({ kind, item }) => {
+            const pg = itemPage(kind, item);
+            return (
+            <button key={`${kind}-${item.id}`} type="button" className="reader-plain-list-item" onClick={() => turnTo(pg)}>
               {kind === 'bookmark'
                 ? <Bookmark size={15} className="reader-plain-list-icon" />
                 : <span className="reader-plain-list-dot" style={{ background: item.color || COLORS[0] }} />}
@@ -331,15 +493,12 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
                 <span className="reader-plain-list-text">{kind === 'bookmark' ? item.snippet : item.text}</span>
                 {kind === 'highlight' && item.note && <span className="reader-plain-list-note">{item.note}</span>}
               </span>
-              <span className="reader-plain-list-pos">§{pos + 1}</span>
+              {layout && <span className="reader-plain-list-pos">стр. {pg + 1}</span>}
             </button>
-          ))}
+            );
+          })}
         </div>
-      )}
-
-      <article ref={articleRef} className="reader-plain" style={textStyle} lang={book.source_lang} onClick={onArticleClick}>
-        {body}
-      </article>
+      </aside>
 
       {menu && createPortal(
         <div ref={menuRef} className="reader-hl-menu" style={{ top: menu.top, left: menu.left, width: menu.width }} role="dialog" aria-label="Действия с фрагментом">
