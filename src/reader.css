@@ -325,8 +325,10 @@
   box-shadow: var(--shadow-panel); max-width: 100%;
 }
 .reader-mode-group { display: flex; gap: 4px; }
-.reader-mode-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: var(--r-ink-dim); }
-.reader-mode-btn.active { background: var(--r-ink); color: var(--text-inverse); }
+/* .reader-toolbar prefix: beats the page-wide "button { font: inherit }" reset, which
+   otherwise blew these up to body size. */
+.reader-toolbar .reader-mode-btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 500; background: transparent; color: var(--r-ink-dim); white-space: nowrap; }
+.reader-toolbar .reader-mode-btn.active { background: var(--r-ink); color: var(--text-inverse); }
 .reader-toolbar-sep { width: 1px; height: 26px; background: var(--r-border); }
 .reader-swap-btn { min-height: 40px; padding: 0 12px; border: 0; border-radius: 14px; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: 'Unbounded', sans-serif; font-size: 11px; letter-spacing: 0.06em; }
 
@@ -451,6 +453,14 @@
   .reader-para-row .reader-para-text:last-child { border-radius: 0 0 14px 14px; }
   .reader-toolbar { gap: 4px; }
   .reader-mode-group { order: 3; width: 100%; justify-content: center; }
+  /* Wrapped onto several rows, separators would just dangle. */
+  .reader-toolbar-sep { display: none; }
+}
+/* Phones: the four reading modes as a 2x2 grid instead of an overflowing row. */
+@media (max-width: 560px) {
+  .reader-mode-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .reader-toolbar .reader-mode-btn { padding: 0 8px; }
+  .reader-auto-speed > span { display: none; }
 }
 
 /* ---------- Text-to-speech buttons ---------- */
