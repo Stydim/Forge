@@ -664,6 +664,95 @@ app.get('/api/books/:id/paragraphs', async (req, res) => {
   }
 });
 
+// --- Reader: plain reading mode (whole book, no translation) ---
+// The whole original text in one go — never triggers translation.
+app.get('/api/books/:id/text', async (req, res) => {
+  try {
+    const bookRes = await pool.query('select * from forge.books where id = $1', [req.params.id]);
+    if (!bookRes.rows.length) return res.status(404).json({ error: 'Книга не найдена' });
+    const { rows } = await pool.query(
+      'select position, text from forge.book_paragraphs where book_id = $1 order by position',
+      [req.params.id]
+    );
+    res.json({ book: bookRes.rows[0], paragraphs: rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Highlights: a coloured span of the original text (paragraph + char offset
+// at each end, end exclusive), optionally with a note.
+const HIGHLIGHT_COLUMNS = ['color', 'note'];
+
+app.get('/api/books/:id/highlights', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'select * from forge.highlights where book_id = $1 order by start_para, start_offset',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/highlights', async (req, res) => {
+  try {
+    const { book_id, start_para, start_offset, end_para, end_offset, text, color, note } = req.body || {};
+    const ints = [start_para, start_offset, end_para, end_offset];
+    if (!book_id || !text || ints.some((n) => !Number.isInteger(n) || n < 0)) {
+      return res.status(400).json({ error: 'Некорректное выделение' });
+    }
+    const { rows } = await pool.query(
+      `insert into forge.highlights (book_id, start_para, start_offset, end_para, end_offset, text, color, note)
+       values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
+      [book_id, start_para, start_offset, end_para, end_offset, text, color || null, note || null]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/highlights/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('highlights', HIGHLIGHT_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Выделение не найдено' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/highlights/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.highlights where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Bookmarks: a paragraph to jump back to, with a snippet for the list.
+app.get('/api/books/:id/bookmarks', async (req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.bookmarks where book_id = $1 order by paragraph', [req.params.id]);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/bookmarks', async (req, res) => {
+  try {
+    const { book_id, paragraph, snippet } = req.body || {};
+    if (!book_id || !Number.isInteger(paragraph) || paragraph < 0) return res.status(400).json({ error: 'Некорректная закладка' });
+    const { rows } = await pool.query(
+      `insert into forge.bookmarks (book_id, paragraph, snippet) values ($1,$2,$3)
+       on conflict (book_id, paragraph) do update set snippet = excluded.snippet
+       returning *`,
+      [book_id, paragraph, (snippet || '').slice(0, 300) || null]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/bookmarks/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.bookmarks where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // --- Reader: quotes (shown in the frame on the library shelf) ---
 // The frame shows the pinned quote; a newly saved quote becomes the pinned one.
 app.get('/api/quotes', async (_req, res) => {
@@ -859,6 +948,30 @@ async function migrate() {
       key text primary key,
       audio bytea not null,
       created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.highlights (
+      id uuid primary key default gen_random_uuid(),
+      book_id uuid not null references forge.books(id) on delete cascade,
+      start_para integer not null,
+      start_offset integer not null,
+      end_para integer not null,
+      end_offset integer not null,
+      text text not null,
+      color text,
+      note text,
+      created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.bookmarks (
+      id uuid primary key default gen_random_uuid(),
+      book_id uuid not null references forge.books(id) on delete cascade,
+      paragraph integer not null,
+      snippet text,
+      created_at timestamptz not null default now(),
+      unique (book_id, paragraph)
     )
   `);
   await pool.query(`

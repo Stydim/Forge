@@ -6,12 +6,14 @@ import { useReaderSettings } from '../lib/readerSettings';
 import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
 import SpeakButton from '../components/SpeakButton';
 import SelectionQuote from '../components/SelectionQuote';
+import PlainReader from '../components/PlainReader';
 
 // The spread shows original and translation as two separate pages side by
 // side, so it gets half as many paragraphs per page as the stacked modes.
 const PAGE_SIZE_STACK = 15;
 const PAGE_SIZE_SIDE = 8;
-const MODES = [['side', 'Разворот'], ['inter', 'Строка под строкой'], ['orig', 'Оригинал']];
+// 'plain' is the whole book as continuous original text, no translation.
+const MODES = [['side', 'Разворот'], ['inter', 'Строка под строкой'], ['orig', 'Оригинал'], ['plain', 'Читалка']];
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 
 // Splits paragraph text into alternating plain-text and word tokens so each
@@ -74,6 +76,9 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
   const [swapped, setSwapped] = useState(false);
   const { settings, update: updateSettings, reset: resetSettings, origStyle, trStyle } = useReaderSettings();
   const pageSize = mode === 'side' ? PAGE_SIZE_SIDE : PAGE_SIZE_STACK;
+  // Where the plain reader is scrolled to; leaving it reopens the paged
+  // modes at that spot.
+  const [plainPos, setPlainPos] = useState(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
   // side: which text the word was tapped in ('orig' | 'tr'); lang: its language.
@@ -139,6 +144,17 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
     onProgress(bookId, prev);
     loadPage(prev, pageSize);
   };
+  const changeMode = (next) => {
+    if (mode === 'plain' && next !== 'plain' && plainPos != null) {
+      const size = next === 'side' ? PAGE_SIZE_SIDE : PAGE_SIZE_STACK;
+      loadedSizeRef.current = size;
+      setPageStart(plainPos);
+      loadPage(plainPos, size);
+    }
+    if (next === 'plain') setPlainPos(pageStart);
+    setMode(next);
+  };
+
   const finishBook = () => {
     if (!book) return;
     onProgress(bookId, book.paragraph_count);
@@ -201,7 +217,8 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
     return <TappableText text={text} activeWord={active} onWordTap={(w) => openWordGloss(w, text, i, side)} />;
   };
 
-  const progress = book.paragraph_count ? Math.min(100, Math.round((pageStart / book.paragraph_count) * 100)) : 0;
+  const readPos = mode === 'plain' && plainPos != null ? plainPos : pageStart;
+  const progress = book.paragraph_count ? Math.min(100, Math.round((readPos / book.paragraph_count) * 100)) : 0;
   const leftLang = swapped ? book.target_lang : book.source_lang;
   const rightLang = swapped ? book.source_lang : book.target_lang;
   const leftColor = leftLang === book.source_lang ? 'var(--accent-teal-dark)' : 'var(--accent-amber)';
@@ -214,18 +231,26 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
         <button type="button" className="reader-subnav-link" onClick={() => navigate('/reader/cards')}>Карточки</button>
       </nav>
 
-      <div className="reader-reading-layout">
+      <div className={`reader-reading-layout${mode === 'plain' ? ' plain' : ''}`}>
         <main className="reader-main" ref={textRef}>
-          <SelectionQuote containerRef={textRef} book={book} onSave={onSaveQuote} />
+          {mode !== 'plain' && <SelectionQuote containerRef={textRef} book={book} onSave={onSaveQuote} />}
           <header className="reader-book-header">
             <div className="reader-book-header-meta">{book.author || ' '}</div>
             <h1 className="reader-h1">{book.title}</h1>
           </header>
 
-          {pageLoading && <div className="reader-translating">Переводим абзацы…</div>}
-          {pageError && <div className="reader-error">{pageError}</div>}
+          {mode !== 'plain' && pageLoading && <div className="reader-translating">Переводим абзацы…</div>}
+          {mode !== 'plain' && pageError && <div className="reader-error">{pageError}</div>}
 
-          {mode === 'side' ? (
+          {mode === 'plain' ? (
+            <PlainReader
+              book={{ ...book, current_paragraph: pageStart }}
+              textStyle={origStyle}
+              onProgress={onProgress}
+              onPosition={setPlainPos}
+              onSaveQuote={onSaveQuote}
+            />
+          ) : mode === 'side' ? (
             <div className="reader-spread">
               <div className="reader-spread-sheet left" aria-hidden="true" />
               <div className="reader-spread-sheet right" aria-hidden="true" />
@@ -289,35 +314,44 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
           <div className="reader-toolbar">
             <div className="reader-mode-group" role="group" aria-label="Режим чтения">
               {MODES.map(([id, label]) => (
-                <button key={id} type="button" className={`reader-mode-btn${mode === id ? ' active' : ''}`} onClick={() => setMode(id)}>
+                <button key={id} type="button" className={`reader-mode-btn${mode === id ? ' active' : ''}`} onClick={() => changeMode(id)}>
                   {label}
                 </button>
               ))}
             </div>
-            <span className="reader-toolbar-sep" />
-            <button type="button" className="reader-swap-btn" onClick={() => setSwapped((s) => !s)} aria-label="Поменять языки местами">
-              <span style={{ color: leftColor }}>{LANG_LABEL[leftLang]}</span>
-              <ArrowLeftRight size={14} />
-              <span style={{ color: rightColor }}>{LANG_LABEL[rightLang]}</span>
-            </button>
+            {mode !== 'plain' && (
+              <>
+                <span className="reader-toolbar-sep" />
+                <button type="button" className="reader-swap-btn" onClick={() => setSwapped((s) => !s)} aria-label="Поменять языки местами">
+                  <span style={{ color: leftColor }}>{LANG_LABEL[leftLang]}</span>
+                  <ArrowLeftRight size={14} />
+                  <span style={{ color: rightColor }}>{LANG_LABEL[rightLang]}</span>
+                </button>
+              </>
+            )}
             <span className="reader-toolbar-sep" />
             <ReaderSettingsPanel settings={settings} update={updateSettings} reset={resetSettings} />
             <span className="reader-toolbar-sep" />
             <div className="reader-progress-badge">{progress}%</div>
-            <span className="reader-toolbar-sep" />
-            <button type="button" className="reader-nav-btn" onClick={goPrev} disabled={isFirstPage} aria-label="Назад">
-              <ChevronLeft size={18} />
-            </button>
-            {isLastPage ? (
-              <button type="button" className="reader-btn-solid reader-btn-coral" onClick={finishBook}>Завершить книгу</button>
-            ) : (
-              <button type="button" className="reader-nav-btn" onClick={goNext} aria-label="Далее">
-                <ChevronRight size={18} />
-              </button>
+            {mode !== 'plain' && (
+              <>
+                <span className="reader-toolbar-sep" />
+                <button type="button" className="reader-nav-btn" onClick={goPrev} disabled={isFirstPage} aria-label="Назад">
+                  <ChevronLeft size={18} />
+                </button>
+                {isLastPage ? (
+                  <button type="button" className="reader-btn-solid reader-btn-coral" onClick={finishBook}>Завершить книгу</button>
+                ) : (
+                  <button type="button" className="reader-nav-btn" onClick={goNext} aria-label="Далее">
+                    <ChevronRight size={18} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </main>
 
+        {mode !== 'plain' && (
         <aside className="reader-aside">
           <section className="reader-gloss-panel" aria-label="Глосса">
             {!gloss && <div className="reader-gloss-empty">Нажмите на любое слово — в оригинале или в переводе, — чтобы увидеть перевод и добавить его в колоду. Выделите несколько слов, чтобы сохранить цитату.</div>}
@@ -367,6 +401,7 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
             <span className="reader-deck-cta">Повторить сейчас →</span>
           </Link>
         </aside>
+        )}
       </div>
     </div>
   );

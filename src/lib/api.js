@@ -80,6 +80,16 @@ export const getBook = (id) => request(`/books/${id}`);
 export const deleteBook = (id) => request(`/books/${id}`, { method: 'DELETE' });
 export const updateBook = (id, fields) => request(`/books/${id}`, { method: 'PATCH', body: json(fields) });
 export const getBookParagraphs = (id, from, count) => request(`/books/${id}/paragraphs?from=${from}&count=${count}`);
+// Reader: plain reading mode
+export const getBookText = (id) => request(`/books/${id}/text`);
+export const listHighlights = (bookId) => request(`/books/${bookId}/highlights`);
+export const createHighlight = (fields) => request('/highlights', { method: 'POST', body: json(fields) });
+export const updateHighlight = (id, fields) => request(`/highlights/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteHighlight = (id) => request(`/highlights/${id}`, { method: 'DELETE' });
+export const listBookmarks = (bookId) => request(`/books/${bookId}/bookmarks`);
+export const createBookmark = (fields) => request('/bookmarks', { method: 'POST', body: json(fields) });
+export const deleteBookmark = (id) => request(`/bookmarks/${id}`, { method: 'DELETE' });
+
 export const listQuotes = () => request('/quotes');
 export const createQuote = (fields) => request('/quotes', { method: 'POST', body: json(fields) });
 export const pinQuote = (id) => request(`/quotes/${id}/pin`, { method: 'POST' });

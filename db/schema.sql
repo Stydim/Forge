@@ -157,3 +157,27 @@ create table forge.quotes (
   pinned boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Plain reading mode: coloured highlights of the original text (paragraph +
+-- char offset at each end, end exclusive) with optional notes, and bookmarks.
+create table forge.highlights (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references forge.books(id) on delete cascade,
+  start_para integer not null,
+  start_offset integer not null,
+  end_para integer not null,
+  end_offset integer not null,
+  text text not null,
+  color text,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table forge.bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  book_id uuid not null references forge.books(id) on delete cascade,
+  paragraph integer not null,
+  snippet text,
+  created_at timestamptz not null default now(),
+  unique (book_id, paragraph)
+);
