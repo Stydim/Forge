@@ -118,7 +118,7 @@ export default function FlashcardsPage({ savedWords }) {
 
   return (
     <div className="reader-page reader-cards">
-      <nav className="reader-subnav" aria-label="Читалка">
+      <nav className="reader-subnav" aria-label="Библиотека">
         <button type="button" className="reader-subnav-link" onClick={() => navigate('/reader')}>Библиотека</button>
         <span className="reader-subnav-active">Карточки</span>
       </nav>

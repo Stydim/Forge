@@ -564,29 +564,33 @@
 .reader-read-prompt-progress .reader-progress-track { flex: 1; }
 .reader-photo-popover .reader-quote-actions { margin-top: 6px; }
 
-/* ---------- Plain reading mode ("Читалка"): paged, like an e-reader ---------- */
+/* ---------- Plain reading mode ("Читалка"): text in a scrolling window ---------- */
 .reader-reading-layout.plain .reader-main { flex-basis: 100%; width: 100%; align-self: stretch; }
 .reader-plain-layout { display: flex; gap: 24px; align-items: flex-start; }
 .reader-plain-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 
-/* The page: a fixed-size viewport onto the book's column flow. Each column
-   is exactly one page wide, so translating the flow by (width + gap) turns
-   one page; the gap is wider than the side padding so neighbours never peek. */
-.reader-plain-stage { --page-pad-x: 52px; --page-pad-y: 44px; }
+/* The window: fixed height, the book scrolls inside it; text fades out
+   softly at the top and bottom edges. (position: relative so paragraphs'
+   offsetTop is measured from it.) */
 .reader-plain-page {
-  position: relative; box-sizing: border-box; overflow: hidden;
+  --page-pad-x: 52px; --page-pad-y: 36px;
+  box-sizing: border-box; overflow: hidden;
   height: clamp(380px, calc(100vh - 290px), 1000px);
-  padding: var(--page-pad-y) var(--page-pad-x);
   background: var(--r-card); border: 1px solid var(--r-border); border-radius: 18px;
-  box-shadow: var(--shadow-card), inset 14px 0 18px -16px rgba(60, 45, 20, 0.25);
+  box-shadow: var(--shadow-card);
 }
-.reader-plain {
-  height: 100%; column-count: 1; column-gap: calc(var(--page-pad-x) * 2); column-fill: auto;
-  line-height: 1.65; will-change: transform;
+.reader-plain-scroll {
+  position: relative; box-sizing: border-box; height: 100%;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--page-pad-y) var(--page-pad-x);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+  scrollbar-width: thin; scrollbar-color: var(--r-border) transparent;
 }
+.reader-plain { line-height: 1.65; padding-bottom: 40vh; /* lets the last lines scroll up to eye level */ }
 .reader-plain-p {
   position: relative; margin: 0 0 0.45em; text-align: justify; text-indent: 1.6em;
-  hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; orphans: 2; widows: 2;
+  hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word;
 }
 /* A ribbon in the margin marks bookmarked paragraphs. */
 .reader-plain-p.bookmarked::before {
@@ -595,82 +599,6 @@
 }
 .reader-hl { color: inherit; border-radius: 3px; padding: 0.05em 0; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .reader-hl.has-note { border-bottom: 2px dotted rgba(0, 0, 0, 0.45); }
-
-/* Page turn: a two-sided leaf turns over 180° around the spine (left edge).
-   Going back plays the very same motion in reverse, so one set of keyframes
-   (and a symmetric ease-in-out) serves both directions. */
-.reader-plain-stage { position: relative; perspective: 2400px; --flip-dur: 0.8s; --flip-ease: cubic-bezier(0.645, 0.045, 0.355, 1); }
-.reader-flip-layer { position: absolute; inset: 0; pointer-events: none; transform-style: preserve-3d; z-index: 4; }
-.reader-flip-sheet {
-  position: absolute; inset: 0; transform-origin: left center; transform-style: preserve-3d; will-change: transform;
-  animation: reader-leaf var(--flip-dur) var(--flip-ease) forwards;
-}
-.reader-flip-sheet.prev { animation-direction: reverse; }
-@keyframes reader-leaf {
-  0% { transform: rotateY(0deg); opacity: 1; }
-  85% { opacity: 1; }
-  100% { transform: rotateY(-180deg); opacity: 0; }
-}
-.reader-flip-face {
-  position: absolute; inset: 0; box-sizing: border-box; overflow: hidden;
-  padding: var(--page-pad-y) var(--page-pad-x);
-  background: var(--r-card); border: 1px solid var(--r-border); border-radius: 18px;
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
-}
-.reader-flip-face.front { box-shadow: inset 14px 0 18px -16px rgba(60, 45, 20, 0.25); }
-/* The page copy on the leaf: same type as the page, one plain column. */
-.reader-flip-snap { overflow: hidden; line-height: 1.65; }
-/* The back of the paper. */
-.reader-flip-face.back { transform: rotateY(180deg); background: linear-gradient(to left, rgba(120, 100, 60, 0.12), transparent 35%), var(--r-card); }
-/* Light: each side darkens toward its free edge as it tilts away. */
-.reader-flip-shade {
-  position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0;
-  animation: var(--flip-dur) var(--flip-ease) forwards;
-}
-.reader-flip-face.front .reader-flip-shade {
-  background: linear-gradient(to left, rgba(40, 28, 8, 0.38), rgba(40, 28, 8, 0.12) 45%, rgba(255, 255, 255, 0.06));
-  animation-name: reader-shade-front;
-}
-.reader-flip-face.back .reader-flip-shade {
-  background: linear-gradient(to right, rgba(40, 28, 8, 0.32), rgba(40, 28, 8, 0.08) 50%, rgba(255, 255, 255, 0.05));
-  animation-name: reader-shade-back;
-}
-.reader-flip-sheet.prev .reader-flip-shade { animation-direction: reverse; }
-@keyframes reader-shade-front { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
-@keyframes reader-shade-back { 0% { opacity: 1; } 50% { opacity: 1; } 100% { opacity: 0.15; } }
-/* The leaf's shadow on the page below, following its edge in toward the
-   spine and fading as it lifts clear. */
-.reader-flip-cast {
-  position: absolute; top: 0; bottom: 0; left: 100%; width: 45%; z-index: 3; pointer-events: none; opacity: 0;
-  background: linear-gradient(to right, rgba(40, 28, 8, 0.34), rgba(40, 28, 8, 0.1) 40%, transparent);
-}
-.reader-flip-cast.next, .reader-flip-cast.prev { animation: reader-cast var(--flip-dur) var(--flip-ease) forwards; }
-.reader-flip-cast.prev { animation-direction: reverse; }
-@keyframes reader-cast {
-  0% { left: 100%; opacity: 0.9; }
-  50% { left: 0%; opacity: 0.55; }
-  100% { left: 0%; opacity: 0; }
-}
-
-
-/* Edge arrows inside the page margins (appear on hover). */
-.reader-page .reader-page-edge {
-  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
-  width: 36px; height: 72px; border: 0; border-radius: 12px; background: transparent; cursor: pointer;
-  color: var(--r-ink-dim); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s, background 0.15s;
-}
-.reader-page .reader-page-edge.left { left: 6px; }
-.reader-page .reader-page-edge.right { right: 6px; }
-.reader-plain-page:hover .reader-page-edge:not(:disabled) { opacity: 1; }
-.reader-page .reader-page-edge:hover { background: var(--r-chip); }
-.reader-page .reader-page-edge:disabled { cursor: default; }
-
-/* Auto page-turning pacer along the bottom of the page. */
-.reader-pacer {
-  position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--r-accent);
-  animation-name: reader-pacer; animation-timing-function: linear; animation-fill-mode: forwards;
-}
-@keyframes reader-pacer { to { width: 100%; } }
 
 .reader-plain-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .reader-plain-pageno { min-width: 110px; text-align: center; font-size: 14px; color: var(--r-ink-dim); font-variant-numeric: tabular-nums; }
@@ -715,13 +643,8 @@
   .reader-plain-aside { position: static; flex-basis: auto; width: 100%; max-height: 360px; }
 }
 @media (max-width: 768px) {
-  .reader-plain-stage { --page-pad-x: 22px; --page-pad-y: 26px; }
-  .reader-plain-page { height: clamp(360px, calc(100vh - 250px), 900px); border-radius: 14px; }
+  .reader-plain-page { --page-pad-x: 22px; --page-pad-y: 24px; height: clamp(360px, calc(100vh - 250px), 900px); border-radius: 14px; }
   .reader-plain-p.bookmarked::before { left: -16px; width: 9px; height: 14px; }
-  .reader-page .reader-page-edge { display: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .reader-flip-sheet, .reader-flip-cast { display: none; }
 }
 
 /* Selection / highlight menu */

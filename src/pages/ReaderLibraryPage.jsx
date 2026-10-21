@@ -111,7 +111,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
 
   return (
     <div className="reader-page reader-library">
-      <nav className="reader-subnav" aria-label="Читалка">
+      <nav className="reader-subnav" aria-label="Библиотека">
         <span className="reader-subnav-active">Библиотека</span>
         <button type="button" className="reader-subnav-link" onClick={() => navigate('/reader/cards')}>Карточки</button>
       </nav>

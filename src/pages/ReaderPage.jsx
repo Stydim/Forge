@@ -236,7 +236,7 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
 
   return (
     <div className="reader-page reader-reading">
-      <nav className="reader-subnav" aria-label="Читалка">
+      <nav className="reader-subnav" aria-label="Библиотека">
         <button type="button" className="reader-subnav-link" onClick={() => navigate('/reader')}>Библиотека</button>
         <button type="button" className="reader-subnav-link" onClick={() => navigate('/reader/cards')}>Карточки</button>
       </nav>
