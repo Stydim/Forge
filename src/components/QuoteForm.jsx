@@ -37,7 +37,6 @@ export default function QuoteForm({ initialText = '', initialAuthor = '', books,
         onChange={(e) => setText(e.target.value)}
         placeholder="Вставьте цитату…"
         rows={4}
-        maxLength={2000}
         autoFocus={autoFocus}
         aria-label="Текст цитаты"
       />

@@ -8,6 +8,7 @@ import { stripOuterQuotes } from '../lib/quotes';
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 const STATUS_LABEL = { reading: 'Читаю', new: 'Не начата', done: 'Прочитана' };
 const STATUS_CTA = { reading: 'Продолжить', new: 'Начать читать', done: 'Перечитать' };
+const READ_PROMPT = { reading: 'Продолжить чтение?', new: 'Начать читать?', done: 'Перечитать книгу?' };
 const FILTERS = [['all', 'Все'], ['reading', 'Читаю'], ['new', 'Не начаты'], ['done', 'Прочитаны']];
 
 function bookStatus(book) {
@@ -64,12 +65,16 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
       setPlacingId(null);
       setSlotMenu(null);
     } else if (book) {
+      // A book's spine offers to open it right away (and selects its card).
       setSelectedId(book.id);
-      setSlotMenu(null);
+      setSlotMenu(slot);
     } else {
       setSlotMenu(slot);
     }
   };
+
+  // The book standing on the place whose popover is open, if any.
+  const slotBook = typeof slotMenu === 'number' ? sorted.find((b) => b.shelf_slot === slotMenu) : null;
 
   const placeHere = (bookId) => {
     onPlace(bookId, slotMenu);
@@ -200,6 +205,27 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                       </div>
                     </>
                   )}
+                </>
+              ) : slotBook ? (
+                <>
+                  <div className="reader-shelf-panel-head">
+                    <span>{READ_PROMPT[bookStatus(slotBook)]}</span>
+                    <button type="button" className="reader-gloss-close" onClick={() => setSlotMenu(null)} aria-label="Закрыть"><X size={16} /></button>
+                  </div>
+                  <div className="reader-read-prompt-title">{slotBook.title}</div>
+                  {slotBook.author && <div className="reader-shelf-panel-sub">{slotBook.author}</div>}
+                  {bookStatus(slotBook) === 'reading' && (
+                    <div className="reader-read-prompt-progress">
+                      <div className="reader-progress-track"><div className="reader-progress-fill" style={{ width: `${bookProgress(slotBook)}%` }} /></div>
+                      <span>{bookProgress(slotBook)}%</span>
+                    </div>
+                  )}
+                  <div className="reader-quote-actions">
+                    <button type="button" className="reader-btn-solid reader-btn-coral" onClick={() => navigate(`/reader/book/${slotBook.id}`)} autoFocus>
+                      {STATUS_CTA[bookStatus(slotBook)]}
+                    </button>
+                    <button type="button" className="reader-btn-ghost" onClick={() => setSlotMenu(null)}>Не сейчас</button>
+                  </div>
                 </>
               ) : (
                 <>

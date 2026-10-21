@@ -33,7 +33,9 @@ const pool = new pg.Pool({
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
-app.use(express.json());
+// Pasted book text can be long (a whole chapter or more), well past
+// express.json's 100kb default.
+app.use(express.json({ limit: '20mb' }));
 
 // Grok sometimes wraps JSON in prose or a ```json fence even when asked for
 // raw JSON — try a direct parse first, then fall back to pulling out the
@@ -98,13 +100,40 @@ async function translateParagraphs(paragraphs, sourceLang, targetLang) {
 Ответь СТРОГО JSON без пояснений и без markdown-разметки: {"translations": [string, ...]} — ровно ${paragraphs.length} элемент(ов) в том же порядке, без номеров внутри самого текста перевода.`,
     },
     { role: 'user', content: numbered },
-  ], { maxTokens: Math.min(6000, paragraphs.length * 250 + 200), timeoutMs: 45000 });
+  ], {
+    // Sized to the text (Cyrillic output takes roughly a token per 2-3
+    // chars) so long paragraphs don't get their JSON cut off mid-answer.
+    maxTokens: Math.min(16000, Math.ceil(numbered.length * 0.9) + 300),
+    timeoutMs: Math.min(120000, 30000 + numbered.length * 5),
+  });
 
   const translations = Array.isArray(parsed.translations) ? parsed.translations : [];
   if (translations.length !== paragraphs.length) {
     throw new Error(`Grok translation count mismatch: expected ${paragraphs.length}, got ${translations.length}`);
   }
   return translations;
+}
+
+// Grok now and then merges or drops a paragraph (count mismatch) or cuts a
+// long answer short. Rather than leave the whole batch untranslated, retry
+// each half on its own, down to single paragraphs. A paragraph that still
+// fails comes back null (left untranslated, retried on the next read).
+async function translateParagraphsSafe(paragraphs, sourceLang, targetLang) {
+  try {
+    return await translateParagraphs(paragraphs, sourceLang, targetLang);
+  } catch (err) {
+    if (paragraphs.length === 1) {
+      console.error('translateParagraphs (1) failed:', err.message);
+      return [null];
+    }
+    console.error(`translateParagraphs (${paragraphs.length}) failed, splitting:`, err.message);
+    const mid = Math.ceil(paragraphs.length / 2);
+    const [a, b] = await Promise.all([
+      translateParagraphsSafe(paragraphs.slice(0, mid), sourceLang, targetLang),
+      translateParagraphsSafe(paragraphs.slice(mid), sourceLang, targetLang),
+    ]);
+    return [...a, ...b];
+  }
 }
 
 async function glossWord(word, context, sourceLang, targetLang) {
@@ -492,9 +521,10 @@ async function insertParagraphs(bookId, startPosition, paragraphs) {
 
 // --- Reader: pasted-text "books" ---
 // A user can start an empty book, paste text into it and get the translation
-// right away. Pasted text is short, so unlike uploaded files it's translated
-// eagerly (in page-sized batches) instead of lazily on read.
-const PASTE_MAX_CHARS = 30000;
+// right away. Saving returns at once with the paragraphs untranslated; the
+// paste page then translates them page by page through the same cached
+// /paragraphs endpoint the reader uses, so any length of text works without
+// one request having to wait for all of it to be translated.
 
 // Text copied from a web page usually has one paragraph per line; text with
 // blank lines between paragraphs is often hard-wrapped inside them, so in
@@ -511,31 +541,8 @@ function detectLang(text) {
   return cyr >= lat ? 'ru' : 'en';
 }
 
-async function translateAndStore(rows, sourceLang, targetLang) {
-  const BATCH = 15;
-  const result = [...rows];
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH);
-    try {
-      const translations = await translateParagraphs(batch.map((r) => r.text), sourceLang, targetLang);
-      for (let j = 0; j < batch.length; j++) {
-        const updated = await pool.query(
-          'update forge.book_paragraphs set translation = $1, translated_at = now() where id = $2 returning *',
-          [translations[j], batch[j].id]
-        );
-        result[i + j] = updated.rows[0];
-      }
-    } catch (err) {
-      // Left untranslated — the reader translates it lazily on open anyway.
-      console.error('translateParagraphs (paste) failed:', err.message);
-    }
-  }
-  return result;
-}
-
 function readPastedParagraphs(body) {
   const text = typeof body?.text === 'string' ? body.text : '';
-  if (text.length > PASTE_MAX_CHARS) throw new Error(`Слишком длинный текст — не больше ${PASTE_MAX_CHARS} символов за раз`);
   const paragraphs = splitPastedText(text);
   if (paragraphs.length === 0) throw new Error('Вставьте текст для перевода');
   return paragraphs;
@@ -557,7 +564,7 @@ app.post('/api/books/text', async (req, res) => {
     );
     const book = rows[0];
     const inserted = await insertParagraphs(book.id, 0, paragraphs);
-    res.json({ book, paragraphs: await translateAndStore(inserted, sourceLang, targetLang) });
+    res.json({ book, paragraphs: inserted });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -574,7 +581,7 @@ app.post('/api/books/:id/text', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Книга не найдена' });
     const book = rows[0];
     const inserted = await insertParagraphs(book.id, book.paragraph_count - paragraphs.length, paragraphs);
-    res.json({ book, paragraphs: await translateAndStore(inserted, book.source_lang, book.target_lang) });
+    res.json({ book, paragraphs: inserted });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -636,8 +643,9 @@ app.get('/api/books/:id/paragraphs', async (req, res) => {
     const missing = rows.filter((r) => r.translation == null);
     if (missing.length > 0) {
       try {
-        const translations = await translateParagraphs(missing.map((r) => r.text), book.source_lang, book.target_lang);
+        const translations = await translateParagraphsSafe(missing.map((r) => r.text), book.source_lang, book.target_lang);
         for (let i = 0; i < missing.length; i++) {
+          if (translations[i] == null) continue;
           const updated = await pool.query(
             'update forge.book_paragraphs set translation = $1, translated_at = now() where id = $2 returning *',
             [translations[i], missing[i].id]
@@ -669,7 +677,6 @@ app.post('/api/quotes', async (req, res) => {
   try {
     const text = (req.body?.text || '').trim();
     if (!text) return res.status(400).json({ error: 'Пустая цитата' });
-    if (text.length > 2000) return res.status(400).json({ error: 'Слишком длинная цитата — не больше 2000 символов' });
     const author = (req.body.author || '').trim() || null;
     let bookId = req.body.book_id || null;
     let bookTitle = null;

@@ -7,6 +7,10 @@ import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 // When reopening an existing book to add more text, show its tail for context.
 const CONTEXT_TAIL = 6;
+// After saving pasted text it is translated in small batches, several at
+// once, so the right-hand page fills in quickly even for long text.
+const TRANSLATE_BATCH = 6;
+const TRANSLATE_PARALLEL = 3;
 
 // "Empty book": the user pastes text into the left page, it's translated into
 // the right page, and the result is saved as a regular book in the library
@@ -25,6 +29,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
   const [pairs, setPairs] = useState([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(null); // { done, total } while translating
   const [error, setError] = useState(null);
 
   // Opening /reader/paste/:id (e.g. "Дописать текст" from the library, or a
@@ -49,18 +54,42 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
+  // Saving returns the new paragraphs untranslated; translate them a page at
+  // a time (the same cached endpoint the reader uses), filling the right-hand
+  // page in as each batch arrives, so any amount of text can be pasted.
+  const translateNew = async (bookId, rows) => {
+    const starts = [];
+    for (let i = 0; i < rows.length; i += TRANSLATE_BATCH) starts.push(i);
+    let done = 0;
+    setProgress({ done, total: rows.length });
+    // A few batches in flight at once; each fills in as soon as it lands.
+    const worker = async () => {
+      while (starts.length) {
+        const i = starts.shift();
+        const data = await api.getBookParagraphs(bookId, rows[i].position, TRANSLATE_BATCH);
+        const byId = new Map(data.paragraphs.map((p) => [p.id, p]));
+        setPairs((prev) => prev.map((p) => byId.get(p.id) || p));
+        done += Math.min(TRANSLATE_BATCH, rows.length - i);
+        setProgress({ done, total: rows.length });
+      }
+    };
+    await Promise.all(Array.from({ length: TRANSLATE_PARALLEL }, worker));
+    setProgress(null);
+  };
+
   const translate = async () => {
     const text = draft.trim();
     if (!text || busy) return;
     setBusy(true);
     setError(null);
     try {
+      let data;
       if (book) {
-        const data = await onAppend(book.id, text);
+        data = await onAppend(book.id, text);
         setBook(data.book);
         setPairs((prev) => [...prev, ...data.paragraphs]);
       } else {
-        const data = await onCreate({ title: title.trim(), text });
+        data = await onCreate({ title: title.trim(), text });
         if (shelfSlot != null) onPlace(data.book.id, shelfSlot);
         setBook(data.book);
         setTitle(data.book.title);
@@ -68,8 +97,10 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
         navigate(`/reader/paste/${data.book.id}`, { replace: true });
       }
       setDraft('');
+      await translateNew(data.book.id, data.paragraphs);
     } catch (err) {
       setError(err.message);
+      setProgress(null);
     }
     setBusy(false);
   };
@@ -147,14 +178,14 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
             </div>
             <span />
             <div className="reader-paste-cell reader-paste-hint">
-              {busy ? 'Переводим…' : 'Здесь появится перевод. Каждая строка или абзац переводится отдельно.'}
+              {progress ? `Переводим… ${progress.done} из ${progress.total} абзацев` : busy ? 'Сохраняем…' : 'Здесь появится перевод. Каждая строка или абзац переводится отдельно.'}
             </div>
           </div>
         </div>
 
         <div className="reader-toolbar">
           <button type="button" className="reader-btn-solid reader-btn-coral" onClick={translate} disabled={busy || !draft.trim()}>
-            {busy ? 'Переводим…' : 'Перевести'}
+            {progress ? `Переводим… ${progress.done}/${progress.total}` : busy ? 'Сохраняем…' : 'Перевести'}
           </button>
           <span className="reader-toolbar-sep" />
           <ReaderSettingsPanel settings={settings} update={update} reset={reset} />

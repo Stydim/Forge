@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
+import { SHELF_SLOTS } from '../lib/bookshelf';
 
 export function useBooks() {
   const [books, setBooks] = useState([]);
@@ -52,19 +53,27 @@ export function useBooks() {
   }, []);
 
   // Puts a book on a shelf place (or takes it off with slot = null). If
-  // another book already stands there, the two swap places.
+  // another book already stands there, the two swap places; if the moved
+  // book wasn't on the shelf yet, the displaced one moves to the first free
+  // place instead of silently dropping off the shelf.
   const place = useCallback(async (id, slot) => {
     const current = booksRef.current;
     const oldSlot = current.find((b) => b.id === id)?.shelf_slot ?? null;
     const occupant = slot == null ? null : current.find((b) => b.shelf_slot === slot && b.id !== id);
+    let occupantSlot = oldSlot;
+    if (occupant && occupantSlot == null) {
+      const taken = new Set(current.map((b) => b.shelf_slot).filter((s) => s != null));
+      const free = SHELF_SLOTS.findIndex((_, i) => !taken.has(i));
+      occupantSlot = free === -1 ? null : free;
+    }
     setBooks((prev) => prev.map((b) => {
       if (b.id === id) return { ...b, shelf_slot: slot };
-      if (occupant && b.id === occupant.id) return { ...b, shelf_slot: oldSlot };
+      if (occupant && b.id === occupant.id) return { ...b, shelf_slot: occupantSlot };
       return b;
     }));
     try {
       await api.updateBook(id, { shelf_slot: slot });
-      if (occupant && oldSlot != null) await api.updateBook(occupant.id, { shelf_slot: oldSlot });
+      if (occupant && occupantSlot != null) await api.updateBook(occupant.id, { shelf_slot: occupantSlot });
     } catch (err) {
       setError(err.message); load();
     }
