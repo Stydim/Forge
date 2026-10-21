@@ -22,7 +22,7 @@ function bookProgress(book) {
   return Math.min(100, Math.round((book.current_paragraph / book.paragraph_count) * 100));
 }
 
-export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete, onPlace, quotes }) {
+export default function ReaderLibraryPage({ books, loading, error, onUpload, onDelete, onPlace, onUpdate, quotes }) {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [filter, setFilter] = useState('all');
@@ -30,6 +30,8 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [pendingFile, setPendingFile] = useState(null);
+  // Upload as a book just for reading (Читалка), with no translation.
+  const [uploadPlain, setUploadPlain] = useState(false);
   // Shelf interaction: placingId = book waiting for the user to pick its
   // place; slotMenu = empty place that was clicked (offers what to put there);
   // pendingSlot = place an upload started from, applied once it finishes.
@@ -96,7 +98,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
     setUploading(true);
     setUploadError(null);
     try {
-      const book = await onUpload({ file: pendingFile, sourceLang });
+      const book = await onUpload({ file: pendingFile, sourceLang, plainOnly: uploadPlain });
       if (pendingSlot != null) onPlace(book.id, pendingSlot);
       setPendingFile(null);
       setPendingSlot(null);
@@ -138,6 +140,10 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
       {pendingFile && (
         <div className="reader-upload-prompt">
           <span>«{pendingFile.name}» — на каком языке эта книга?</span>
+          <label className="reader-check">
+            <input type="checkbox" checked={uploadPlain} onChange={(e) => setUploadPlain(e.target.checked)} disabled={uploading} />
+            Без перевода — просто читать в Читалке
+          </label>
           <div className="reader-upload-prompt-actions">
             <button type="button" className="reader-btn-solid reader-btn-coral" disabled={uploading} onClick={() => confirmUpload('ru')}>Русский</button>
             <button type="button" className="reader-btn-solid reader-btn-cyan" disabled={uploading} onClick={() => confirmUpload('en')}>English</button>
@@ -281,6 +287,10 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                 </span>
                 <h3 className="reader-book-card-title">{selected.title}</h3>
                 {selected.author && <div className="reader-book-card-author">{selected.author}</div>}
+                <label className="reader-check reader-check-small" title="Книга открывается сразу в Читалке и не переводится автоматически">
+                  <input type="checkbox" checked={!!selected.plain_only} onChange={(e) => onUpdate(selected.id, { plain_only: e.target.checked })} />
+                  Без перевода
+                </label>
                 <div className="reader-book-card-foot">
                   <div className="reader-progress-row-small">
                     <span>{STATUS_LABEL[bookStatus(selected)]}</span>

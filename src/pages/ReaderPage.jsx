@@ -109,6 +109,15 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
         if (cancelled) return;
         const start = Math.min(b.current_paragraph, Math.max(0, b.paragraph_count - 1));
         setPageStart(start);
+        if (b.plain_only) {
+          // A no-translation book opens straight in Читалка; nothing gets
+          // translated unless a translated mode is picked by hand.
+          setBook(b);
+          setPlainPos(start);
+          setMode('plain');
+          setPageLoading(false);
+          return;
+        }
         loadPage(start, pageSize);
       } catch (err) {
         if (!cancelled) setPageError(err.message);
@@ -124,7 +133,8 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
   useEffect(() => {
     if (loadedSizeRef.current === pageSize) return;
     loadedSizeRef.current = pageSize;
-    if (book) loadPage(pageStart, pageSize);
+    // Not in Читалка: it has its own text, and loading a page would translate it.
+    if (book && mode !== 'plain') loadPage(pageStart, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageSize]);
 

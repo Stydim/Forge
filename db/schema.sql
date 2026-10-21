@@ -91,6 +91,8 @@ create table forge.books (
   -- Place on the library's bookshelf photo (index into SHELF_SLOTS in
   -- src/lib/bookshelf.js); null = not placed yet.
   shelf_slot integer,
+  -- A book just for reading in Читалка: opened without translation.
+  plain_only boolean not null default false,
   created_at timestamptz not null default now()
 );
 

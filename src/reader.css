@@ -738,3 +738,9 @@
   0%, 30% { box-shadow: 0 0 0 3px var(--accent-amber); }
   100% { box-shadow: 0 0 0 3px transparent; }
 }
+
+/* "Без перевода" checkboxes (upload prompt, paste page, book card) */
+.reader-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--r-ink); cursor: pointer; user-select: none; }
+.reader-check input { width: 16px; height: 16px; accent-color: var(--r-accent); cursor: pointer; margin: 0; }
+.reader-check-small { font-size: 13px; color: var(--r-ink-dim); }
+.reader-toolbar .reader-check { padding: 0 8px; }

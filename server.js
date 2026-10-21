@@ -468,7 +468,10 @@ app.put('/api/habits/:habitId/completions/:date', async (req, res) => {
 // --- Reader: books ---
 const BOOK_FORMATS = new Set(['epub', 'fb2', 'txt']);
 const SPINE_COLORS = ['#FF6A3D', '#5CC8E0', '#ECEAE4', '#2C3140', '#B8432A', '#3A6F7B', '#1F2228', '#D9D3C4'];
-const BOOK_COLUMNS = ['title', 'author', 'current_paragraph', 'shelf_slot'];
+const BOOK_COLUMNS = ['title', 'author', 'current_paragraph', 'shelf_slot', 'plain_only'];
+// plain_only: a book just for reading (Читалка) — opened without translation
+// and never translated unless a translated mode is chosen by hand.
+const truthy = (v) => v === true || v === 'true' || v === '1' || v === 1;
 
 app.post('/api/books', upload.single('file'), async (req, res) => {
   try {
@@ -486,9 +489,9 @@ app.post('/api/books', upload.single('file'), async (req, res) => {
     const spineColor = SPINE_COLORS[Math.floor(Math.random() * SPINE_COLORS.length)];
 
     const { rows } = await pool.query(
-      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count)
-       values ($1,$2,$3,$4,$5,$6,$7) returning *`,
-      [title, author, sourceLang, targetLang, ext, spineColor, parsed.paragraphs.length]
+      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count, plain_only)
+       values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
+      [title, author, sourceLang, targetLang, ext, spineColor, parsed.paragraphs.length, truthy(req.body.plain_only)]
     );
     const book = rows[0];
     await insertParagraphs(book.id, 0, parsed.paragraphs);
@@ -558,9 +561,9 @@ app.post('/api/books/text', async (req, res) => {
     const spineColor = SPINE_COLORS[Math.floor(Math.random() * SPINE_COLORS.length)];
 
     const { rows } = await pool.query(
-      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count)
-       values ($1,$2,$3,$4,'txt',$5,$6) returning *`,
-      [title, author, sourceLang, targetLang, spineColor, paragraphs.length]
+      `insert into forge.books (title, author, source_lang, target_lang, format, spine_color, paragraph_count, plain_only)
+       values ($1,$2,$3,$4,'txt',$5,$6,$7) returning *`,
+      [title, author, sourceLang, targetLang, spineColor, paragraphs.length, truthy(req.body.plain_only)]
     );
     const book = rows[0];
     const inserted = await insertParagraphs(book.id, 0, paragraphs);
@@ -640,7 +643,8 @@ app.get('/api/books/:id/paragraphs', async (req, res) => {
       [book.id, from, from + count]
     );
 
-    const missing = rows.filter((r) => r.translation == null);
+    // ?translate=0 serves the text as is (no-translation books).
+    const missing = req.query.translate === '0' ? [] : rows.filter((r) => r.translation == null);
     if (missing.length > 0) {
       try {
         const translations = await translateParagraphsSafe(missing.map((r) => r.text), book.source_lang, book.target_lang);
@@ -943,6 +947,7 @@ app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')));
 // db/schema.sql was applied — keeps deploys self-sufficient.
 async function migrate() {
   await pool.query('alter table forge.books add column if not exists shelf_slot integer');
+  await pool.query('alter table forge.books add column if not exists plain_only boolean not null default false');
   await pool.query(`
     create table if not exists forge.tts_cache (
       key text primary key,

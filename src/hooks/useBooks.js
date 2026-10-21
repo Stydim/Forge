@@ -26,16 +26,16 @@ export function useBooks() {
   const booksRef = useRef(books);
   useEffect(() => { booksRef.current = books; }, [books]);
 
-  const upload = useCallback(async ({ file, sourceLang, title, author }) => {
-    const book = await api.uploadBook({ file, sourceLang, title, author });
+  const upload = useCallback(async ({ file, sourceLang, title, author, plainOnly }) => {
+    const book = await api.uploadBook({ file, sourceLang, title, author, plainOnly });
     setBooks((prev) => [book, ...prev]);
     return book;
   }, []);
 
   // Pasted-text books: create/append return { book, paragraphs } with the
   // fresh translations; the book row is mirrored into the library list.
-  const createFromText = useCallback(async ({ title, text }) => {
-    const data = await api.createTextBook({ title, text });
+  const createFromText = useCallback(async ({ title, text, plainOnly }) => {
+    const data = await api.createTextBook({ title, text, plainOnly });
     setBooks((prev) => [data.book, ...prev]);
     return data;
   }, []);
@@ -44,6 +44,13 @@ export function useBooks() {
     const data = await api.appendBookText(id, text);
     setBooks((prev) => prev.map((b) => (b.id === id ? data.book : b)));
     return data;
+  }, []);
+
+  // Edits plain book fields (title, plain_only) and mirrors them in the list.
+  const updateFields = useCallback(async (id, fields) => {
+    const book = await api.updateBook(id, fields);
+    setBooks((prev) => prev.map((b) => (b.id === id ? book : b)));
+    return book;
   }, []);
 
   const rename = useCallback(async (id, title) => {
@@ -97,5 +104,5 @@ export function useBooks() {
     }
   }, []);
 
-  return { books, loading, error, load, upload, createFromText, appendText, rename, place, removeBook, setProgress };
+  return { books, loading, error, load, upload, createFromText, appendText, rename, updateFields, place, removeBook, setProgress };
 }

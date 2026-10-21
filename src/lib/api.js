@@ -79,7 +79,7 @@ export const listBooks = () => request('/books');
 export const getBook = (id) => request(`/books/${id}`);
 export const deleteBook = (id) => request(`/books/${id}`, { method: 'DELETE' });
 export const updateBook = (id, fields) => request(`/books/${id}`, { method: 'PATCH', body: json(fields) });
-export const getBookParagraphs = (id, from, count) => request(`/books/${id}/paragraphs?from=${from}&count=${count}`);
+export const getBookParagraphs = (id, from, count, { translate = true } = {}) => request(`/books/${id}/paragraphs?from=${from}&count=${count}${translate ? '' : '&translate=0'}`);
 // Reader: plain reading mode
 export const getBookText = (id) => request(`/books/${id}/text`);
 export const listHighlights = (bookId) => request(`/books/${bookId}/highlights`);
@@ -94,13 +94,14 @@ export const listQuotes = () => request('/quotes');
 export const createQuote = (fields) => request('/quotes', { method: 'POST', body: json(fields) });
 export const pinQuote = (id) => request(`/quotes/${id}/pin`, { method: 'POST' });
 export const deleteQuote = (id) => request(`/quotes/${id}`, { method: 'DELETE' });
-export const createTextBook = ({ title, text }) => request('/books/text', { method: 'POST', body: json({ title, text }) });
+export const createTextBook = ({ title, text, plainOnly }) => request('/books/text', { method: 'POST', body: json({ title, text, plain_only: !!plainOnly }) });
 export const appendBookText = (id, text) => request(`/books/${id}/text`, { method: 'POST', body: json({ text }) });
 
-export async function uploadBook({ file, sourceLang, title, author }) {
+export async function uploadBook({ file, sourceLang, title, author, plainOnly }) {
   const form = new FormData();
   form.append('file', file);
   form.append('source_lang', sourceLang);
+  if (plainOnly) form.append('plain_only', 'true');
   if (title) form.append('title', title);
   if (author) form.append('author', author);
   const res = await fetch(`${BASE}/books`, { method: 'POST', body: form });

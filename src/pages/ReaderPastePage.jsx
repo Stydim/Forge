@@ -15,12 +15,12 @@ const TRANSLATE_PARALLEL = 3;
 // "Empty book": the user pastes text into the left page, it's translated into
 // the right page, and the result is saved as a regular book in the library
 // (more text can be appended to it later).
-export default function ReaderPastePage({ books, onCreate, onAppend, onRename, onPlace }) {
+export default function ReaderPastePage({ books, onCreate, onAppend, onRename, onPlace, onUpdate }) {
   const { bookId } = useParams();
   // Set when the new book was started from an empty place on the shelf.
   const [searchParams] = useSearchParams();
   const slotParam = searchParams.get('slot');
-  const shelfSlot = slotParam != null && /^d+$/.test(slotParam) ? Number(slotParam) : null;
+  const shelfSlot = slotParam != null && /^\d+$/.test(slotParam) ? Number(slotParam) : null;
   const navigate = useNavigate();
   const { settings, update, reset, origStyle, trStyle } = useReaderSettings();
 
@@ -31,6 +31,9 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null); // { done, total } while translating
   const [error, setError] = useState(null);
+  // "Без перевода": text is only saved (for reading in Читалка), never sent
+  // for translation. For an existing book this is its plain_only flag.
+  const [plainNew, setPlainNew] = useState(false);
 
   // Opening /reader/paste/:id (e.g. "Дописать текст" from the library, or a
   // reload right after creating): load the book and the tail of its text.
@@ -41,7 +44,8 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
       try {
         const b = await api.getBook(bookId);
         const from = Math.max(0, b.paragraph_count - CONTEXT_TAIL);
-        const data = await api.getBookParagraphs(bookId, from, CONTEXT_TAIL);
+        // A no-translation book's tail is fetched without translating it.
+        const data = await api.getBookParagraphs(bookId, from, CONTEXT_TAIL, { translate: !b.plain_only });
         if (cancelled) return;
         setBook(data.book);
         setTitle(data.book.title);
@@ -89,7 +93,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
         setBook(data.book);
         setPairs((prev) => [...prev, ...data.paragraphs]);
       } else {
-        data = await onCreate({ title: title.trim(), text });
+        data = await onCreate({ title: title.trim(), text, plainOnly: plainNew });
         if (shelfSlot != null) onPlace(data.book.id, shelfSlot);
         setBook(data.book);
         setTitle(data.book.title);
@@ -97,7 +101,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
         navigate(`/reader/paste/${data.book.id}`, { replace: true });
       }
       setDraft('');
-      await translateNew(data.book.id, data.paragraphs);
+      if (!data.book.plain_only) await translateNew(data.book.id, data.paragraphs);
     } catch (err) {
       setError(err.message);
       setProgress(null);
@@ -113,6 +117,12 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const plainOnly = book ? !!book.plain_only : plainNew;
+  const togglePlain = async (value) => {
+    if (!book) { setPlainNew(value); return; }
+    try { setBook(await onUpdate(book.id, { plain_only: value })); } catch (err) { setError(err.message); }
   };
 
   // The library's copy carries the up-to-date paragraph count.
@@ -150,7 +160,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
           <div className="reader-side-head">
             <span style={{ color: 'var(--accent-teal-dark)' }}>Оригинал</span>
             <span />
-            <span style={{ color: 'var(--accent-amber)' }}>Перевод</span>
+            <span style={{ color: 'var(--accent-amber)' }}>{plainOnly ? 'Без перевода' : 'Перевод'}</span>
           </div>
 
           {pairs.map((p) => (
@@ -159,7 +169,7 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
               <span className="reader-para-num">
                 <span className="reader-para-dot">{String(p.position + 1).padStart(2, '0')}</span>
               </span>
-              <span className="reader-para-text reader-para-text-tr" style={trStyle}>{p.translation ?? '…'}</span>
+              <span className="reader-para-text reader-para-text-tr" style={trStyle}>{p.translation ?? (plainOnly ? '' : '…')}</span>
             </div>
           ))}
 
@@ -178,15 +188,19 @@ export default function ReaderPastePage({ books, onCreate, onAppend, onRename, o
             </div>
             <span />
             <div className="reader-paste-cell reader-paste-hint">
-              {progress ? `Переводим… ${progress.done} из ${progress.total} абзацев` : busy ? 'Сохраняем…' : 'Здесь появится перевод. Каждая строка или абзац переводится отдельно.'}
+              {progress ? `Переводим… ${progress.done} из ${progress.total} абзацев` : busy ? 'Сохраняем…' : plainOnly ? 'Текст сохраняется как есть, без перевода — книга для чтения в Читалке.' : 'Здесь появится перевод. Каждая строка или абзац переводится отдельно.'}
             </div>
           </div>
         </div>
 
         <div className="reader-toolbar">
           <button type="button" className="reader-btn-solid reader-btn-coral" onClick={translate} disabled={busy || !draft.trim()}>
-            {progress ? `Переводим… ${progress.done}/${progress.total}` : busy ? 'Сохраняем…' : 'Перевести'}
+            {progress ? `Переводим… ${progress.done}/${progress.total}` : busy ? 'Сохраняем…' : plainOnly ? 'Сохранить' : 'Перевести'}
           </button>
+          <label className="reader-check" title="Сохранять текст без перевода — книга для чтения в Читалке">
+            <input type="checkbox" checked={plainOnly} onChange={(e) => togglePlain(e.target.checked)} disabled={busy} />
+            Без перевода
+          </label>
           <span className="reader-toolbar-sep" />
           <ReaderSettingsPanel settings={settings} update={update} reset={reset} />
           {book && (
