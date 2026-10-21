@@ -71,6 +71,8 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   const flippingRef = useRef(false);
   const [autoOn, setAutoOn] = useState(false);
   const [autoSeconds, setAutoSeconds] = useState(loadAutoSeconds);
+  // Side panel: this page's bookmarks/notes/highlights, or all of the book's.
+  const [showAllMarks, setShowAllMarks] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,15 +176,42 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   // Page a list item lives on: a bookmark's paragraph start, or for a
   // highlight the page its marked text actually begins on (it may sit
   // further into a paragraph that started pages earlier).
-  const itemPage = (kind, item) => {
-    if (!layout) return 0;
-    if (kind === 'highlight') {
-      const flow = articleRef.current;
-      const mark = flow?.querySelector(`mark[data-hid="${item.id}"]`);
-      if (mark) return Math.floor((mark.getBoundingClientRect().left - flow.getBoundingClientRect().left + 1) / layout.step);
+  // All pages a list item shows up on: for a highlight every page its marked
+  // text touches (it can run over a page break), for a bookmark the page its
+  // paragraph — and the ribbon — starts on.
+  const itemPages = (kind, item) => {
+    if (!layout) return [0];
+    const flow = articleRef.current;
+    if (kind === 'highlight' && flow) {
+      const origin = flow.getBoundingClientRect().left;
+      const pages = new Set();
+      for (const mark of flow.querySelectorAll(`mark[data-hid="${item.id}"]`)) {
+        for (const r of mark.getClientRects()) pages.add(Math.floor((r.left - origin + 1) / layout.step));
+      }
+      if (pages.size) return [...pages].sort((a, b) => a - b);
     }
     const pos = kind === 'highlight' ? item.start_para : item.paragraph;
-    return layout.startPages[paragraphs.findIndex((p) => p.position === pos)] ?? 0;
+    return [layout.startPages[paragraphs.findIndex((x) => x.position === pos)] ?? 0];
+  };
+
+  // Briefly pulse an item in the text so it's easy to spot on the page.
+  const flash = (kind, item) => {
+    const flow = articleRef.current;
+    if (!flow) return;
+    const els = kind === 'highlight'
+      ? flow.querySelectorAll(`mark[data-hid="${item.id}"]`)
+      : flow.querySelectorAll(`[data-pos="${item.paragraph}"]`);
+    for (const el of els) {
+      el.classList.remove('reader-flash');
+      void el.offsetWidth; // restart the animation
+      el.classList.add('reader-flash');
+      setTimeout(() => el.classList.remove('reader-flash'), 1400);
+    }
+  };
+
+  const openItem = (kind, item, pages) => {
+    if (!pages.includes(page)) turnTo(pages[0]);
+    setTimeout(() => flash(kind, item), pages.includes(page) ? 0 : FLIP_MS);
   };
 
   // Arrow keys / PageUp / PageDown / space turn pages (not while typing).
@@ -413,6 +442,8 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   if (!paragraphs) return <div className="reader-loading">Загрузка книги…</div>;
 
   const activeColor = menu?.highlight?.color;
+  const withPages = listItems.map((x) => ({ ...x, pages: itemPages(x.kind, x.item) }));
+  const shownItems = showAllMarks ? withPages : withPages.filter((x) => x.pages.includes(page));
 
   return (
     <div className="reader-plain-layout">
@@ -478,14 +509,19 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
 
       <aside className="reader-plain-aside" aria-label="Закладки и заметки">
         <div className="reader-plain-aside-head">
-          <Bookmark size={15} /> Закладки и заметки{listItems.length ? ` · ${listItems.length}` : ''}
+          <Bookmark size={15} /> {showAllMarks ? 'Все отметки в книге' : 'На этой странице'}
+          {shownItems.length > 0 && <span className="reader-plain-aside-count">{shownItems.length}</span>}
         </div>
         <div className="reader-plain-list">
-          {listItems.length === 0 && <div className="reader-shelf-panel-sub">Пока пусто. Выделите текст, чтобы отметить его цветом, оставить заметку или поставить закладку.</div>}
-          {listItems.map(({ kind, item }) => {
-            const pg = itemPage(kind, item);
-            return (
-            <button key={`${kind}-${item.id}`} type="button" className="reader-plain-list-item" onClick={() => turnTo(pg)}>
+          {shownItems.length === 0 && (
+            <div className="reader-shelf-panel-sub">
+              {listItems.length === 0 || showAllMarks
+                ? 'Пока пусто. Выделите текст, чтобы отметить его цветом, оставить заметку или поставить закладку.'
+                : 'На этой странице отметок нет. Выделите текст, чтобы отметить его цветом, оставить заметку или поставить закладку.'}
+            </div>
+          )}
+          {shownItems.map(({ kind, item, pages }) => (
+            <button key={`${kind}-${item.id}`} type="button" className="reader-plain-list-item" onClick={() => openItem(kind, item, pages)}>
               {kind === 'bookmark'
                 ? <Bookmark size={15} className="reader-plain-list-icon" />
                 : <span className="reader-plain-list-dot" style={{ background: item.color || COLORS[0] }} />}
@@ -493,11 +529,15 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
                 <span className="reader-plain-list-text">{kind === 'bookmark' ? item.snippet : item.text}</span>
                 {kind === 'highlight' && item.note && <span className="reader-plain-list-note">{item.note}</span>}
               </span>
-              {layout && <span className="reader-plain-list-pos">стр. {pg + 1}</span>}
+              {layout && showAllMarks && <span className="reader-plain-list-pos">стр. {pages[0] + 1}</span>}
             </button>
-            );
-          })}
+          ))}
         </div>
+        {listItems.length > 0 && (
+          <button type="button" className="reader-plain-aside-toggle" onClick={() => setShowAllMarks((v) => !v)}>
+            {showAllMarks ? 'Только эта страница' : `Все отметки в книге (${listItems.length})`}
+          </button>
+        )}
       </aside>
 
       {menu && createPortal(
