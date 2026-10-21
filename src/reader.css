@@ -550,3 +550,10 @@
 
 /* Words are spans (not buttons) so a drag can select across them. */
 .reader-word { display: inline; }
+
+/* Book card: its quotes, opened from the "Цитаты" action */
+.reader-book-add.active { color: var(--r-ink); }
+.reader-book-quotes {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 2px 0 4px;
+  border: 1px solid var(--r-border); border-radius: 16px; background: var(--r-card);
+}

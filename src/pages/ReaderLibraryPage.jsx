@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FilePlus2, MoveRight, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { FilePlus2, MoveRight, Plus, Quote as QuoteIcon, Trash2, Undo2, X } from 'lucide-react';
 import PhotoBookshelf from '../components/PhotoBookshelf';
 import QuoteForm from '../components/QuoteForm';
+import { stripOuterQuotes } from '../lib/quotes';
 
 const LANG_LABEL = { ru: 'RU', en: 'EN' };
 const STATUS_LABEL = { reading: 'Читаю', new: 'Не начата', done: 'Прочитана' };
@@ -34,6 +35,10 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
   const [placingId, setPlacingId] = useState(null);
   const [slotMenu, setSlotMenu] = useState(null);
   const [pendingSlot, setPendingSlot] = useState(null);
+  // Book card's "Цитаты" section: which book it's open for, and whether its
+  // add-a-quote form is showing.
+  const [quotesFor, setQuotesFor] = useState(null);
+  const [addingQuote, setAddingQuote] = useState(false);
 
   const sorted = useMemo(() => [...books].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), [books]);
   const filtered = useMemo(
@@ -41,6 +46,10 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
     [sorted, filter]
   );
   const selected = sorted.find((b) => b.id === selectedId) || filtered[0] || null;
+  const bookQuotes = useMemo(
+    () => (selected ? quotes.quotes.filter((q) => q.book_id === selected.id) : []),
+    [quotes.quotes, selected]
+  );
   const unplaced = useMemo(() => sorted.filter((b) => b.shelf_slot == null), [sorted]);
   const dimmedIds = useMemo(
     () => new Set(sorted.filter((b) => filter !== 'all' && bookStatus(b) !== filter).map((b) => b.id)),
@@ -178,7 +187,7 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                         {quotes.quotes.map((q, i) => (
                           <div key={q.id} className={`reader-quote-item${i === 0 ? ' current' : ''}`}>
                             <button type="button" className="reader-quote-item-main" onClick={() => quotes.pin(q.id)}>
-                              <span className="reader-quote-item-text">“{q.text}”</span>
+                              <span className="reader-quote-item-text">“{stripOuterQuotes(q.text)}”</span>
                               {(q.author || q.book_title) && (
                                 <span className="reader-quote-item-meta">— {[q.author, q.book_title && `«${q.book_title}»`].filter(Boolean).join(', ')}</span>
                               )}
@@ -266,6 +275,58 @@ export default function ReaderLibraryPage({ books, loading, error, onUpload, onD
                   <button type="button" className="reader-btn-ghost reader-book-add" onClick={() => navigate(`/reader/paste/${selected.id}`)}>
                     <FilePlus2 size={15} /> Дописать текст
                   </button>
+                  <button
+                    type="button"
+                    className={`reader-btn-ghost reader-book-add${quotesFor === selected.id ? ' active' : ''}`}
+                    onClick={() => { setQuotesFor((id) => (id === selected.id ? null : selected.id)); setAddingQuote(false); }}
+                    aria-expanded={quotesFor === selected.id}
+                  >
+                    <QuoteIcon size={15} /> Цитаты{bookQuotes.length > 0 && ` (${bookQuotes.length})`}
+                  </button>
+                  {quotesFor === selected.id && (
+                    <div className="reader-book-quotes">
+                      {bookQuotes.length === 0 && !addingQuote && (
+                        <div className="reader-shelf-panel-sub">Из этой книги цитат пока нет. Выделите несколько слов при чтении или добавьте вручную.</div>
+                      )}
+                      {bookQuotes.length > 0 && (
+                        <div className="reader-quote-list">
+                          {bookQuotes.map((q) => {
+                            const inFrame = quotes.quotes[0]?.id === q.id;
+                            return (
+                              <div key={q.id} className={`reader-quote-item${inFrame ? ' current' : ''}`}>
+                                <button
+                                  type="button"
+                                  className="reader-quote-item-main"
+                                  onClick={() => quotes.pin(q.id)}
+                                  title={inFrame ? 'Висит в рамке' : 'Повесить в рамку на полке'}
+                                >
+                                  <span className="reader-quote-item-text">“{stripOuterQuotes(q.text)}”</span>
+                                  <span className="reader-quote-item-meta">{inFrame ? 'В рамке на полке' : 'Нажмите, чтобы повесить в рамку'}</span>
+                                </button>
+                                <button type="button" className="reader-deck-row-delete" onClick={() => quotes.remove(q.id)} aria-label="Удалить цитату">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {addingQuote ? (
+                        <QuoteForm
+                          key={selected.id}
+                          initialAuthor={selected.author || ''}
+                          bookId={selected.id}
+                          onSave={async (q) => { await quotes.add(q); setAddingQuote(false); }}
+                          onCancel={() => setAddingQuote(false)}
+                          autoFocus
+                        />
+                      ) : (
+                        <button type="button" className="reader-popover-item" onClick={() => setAddingQuote(true)}>
+                          <Plus size={16} /> Добавить цитату
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="reader-btn-ghost reader-book-delete"
