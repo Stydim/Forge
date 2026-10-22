@@ -32,14 +32,25 @@ export async function fetchGnomeLines(payload) {
   }
 }
 
-async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+// Errors with `offline: true` mean the server couldn't be reached (no
+// network, or Render's proxy answering for a server that's down) — the
+// reader then falls back to its saved copy (see lib/offline.js).
+export async function request(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+  } catch (err) {
+    err.offline = true;
+    throw err;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed: ${res.status}`);
+    const err = new Error(body.error || `Request failed: ${res.status}`);
+    if (res.status >= 502 && res.status <= 504) err.offline = true;
+    throw err;
   }
   if (res.status === 204) return null;
   return res.json();

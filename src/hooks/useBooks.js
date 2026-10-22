@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
 import { SHELF_SLOTS } from '../lib/bookshelf';
+import { flushOutbox, getCachedBooks, online, patchCachedBook, putCachedBooks, send } from '../lib/offline';
 
 export function useBooks() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Without a network the library shows its last saved list. Changes made
+  // offline go out first, so the list fetched afterwards already has them.
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.listBooks();
+      await flushOutbox();
+      const data = await online(api.listBooks);
       setError(null);
       setBooks(data);
     } catch (err) {
-      setError(err.message);
+      const cached = err.offline ? await getCachedBooks() : null;
+      if (cached) { setError(null); setBooks(cached); } else setError(err.message);
     }
     setLoading(false);
   }, []);
@@ -25,6 +30,8 @@ export function useBooks() {
 
   const booksRef = useRef(books);
   useEffect(() => { booksRef.current = books; }, [books]);
+  // The saved list follows every change (uploads, renames, shelf places…).
+  useEffect(() => { if (!loading && !error) putCachedBooks(books); }, [books, loading, error]);
 
   const upload = useCallback(async ({ file, sourceLang, title, author, plainOnly }) => {
     const book = await api.uploadBook({ file, sourceLang, title, author, plainOnly });
@@ -97,8 +104,10 @@ export function useBooks() {
 
   const setProgress = useCallback(async (id, currentParagraph) => {
     setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, current_paragraph: currentParagraph } : b)));
+    patchCachedBook(id, { current_paragraph: currentParagraph });
     try {
-      await api.updateBook(id, { current_paragraph: currentParagraph });
+      // Queued when offline; only the latest position per book is kept.
+      await send(`/books/${id}`, { method: 'PATCH', body: { current_paragraph: currentParagraph }, bookId: id, key: `progress:${id}` });
     } catch {
       // Best-effort — losing a reading-position save isn't worth a reload/flicker.
     }

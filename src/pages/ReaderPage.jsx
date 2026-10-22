@@ -7,6 +7,7 @@ import ReaderSettingsPanel from '../components/ReaderSettingsPanel';
 import SpeakButton from '../components/SpeakButton';
 import SelectionQuote from '../components/SelectionQuote';
 import PlainReader from '../components/PlainReader';
+import { flushOutbox, getCachedText, online } from '../lib/offline';
 
 // The spread shows original and translation as two separate pages side by
 // side, so it gets half as many paragraphs per page as the stacked modes.
@@ -105,11 +106,23 @@ export default function ReaderPage({ onProgress, savedWords, onSaveQuote }) {
     let cancelled = false;
     (async () => {
       try {
-        const b = await api.getBook(bookId);
+        // A position saved offline goes out first, so the book opens there.
+        await flushOutbox();
+        let b;
+        let saved = false;
+        try {
+          b = await online(() => api.getBook(bookId));
+        } catch (err) {
+          // Offline: a book opened before has a saved copy, readable in Читалка.
+          const cached = err.offline ? await getCachedText(bookId) : null;
+          if (!cached?.book) throw err.offline ? new Error('нет сети, а эта книга ещё не сохранена на устройстве. Откройте её один раз с интернетом в режиме «Читалка».') : err;
+          b = cached.book;
+          saved = true;
+        }
         if (cancelled) return;
         const start = Math.min(b.current_paragraph, Math.max(0, b.paragraph_count - 1));
         setPageStart(start);
-        if (b.plain_only) {
+        if (b.plain_only || saved) {
           // A no-translation book opens straight in Читалка; nothing gets
           // translated unless a translated mode is picked by hand.
           setBook(b);

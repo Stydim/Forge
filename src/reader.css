@@ -612,6 +612,7 @@
 
 .reader-plain-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .reader-plain-pageno { min-width: 110px; text-align: center; font-size: 14px; color: var(--r-ink-dim); font-variant-numeric: tabular-nums; }
+.reader-offline-note { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--r-ink-dim); opacity: 0.85; }
 .reader-page .reader-auto-btn {
   display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 19px; cursor: pointer;
   border: 1.5px solid var(--r-border); background: var(--r-card); color: var(--r-ink); font-size: 14px; font-weight: 500;

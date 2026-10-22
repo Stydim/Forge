@@ -751,15 +751,19 @@ app.get('/api/books/:id/highlights', async (req, res) => {
 
 app.post('/api/highlights', async (req, res) => {
   try {
-    const { book_id, start_para, start_offset, end_para, end_offset, text, color, note } = req.body || {};
+    // `id` may come from the client: highlights made offline get theirs on
+    // the device and are sent later, so sending one twice must not duplicate it.
+    const { id, book_id, start_para, start_offset, end_para, end_offset, text, color, note } = req.body || {};
     const ints = [start_para, start_offset, end_para, end_offset];
     if (!book_id || !text || ints.some((n) => !Number.isInteger(n) || n < 0)) {
       return res.status(400).json({ error: 'Некорректное выделение' });
     }
     const { rows } = await pool.query(
-      `insert into forge.highlights (book_id, start_para, start_offset, end_para, end_offset, text, color, note)
-       values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
-      [book_id, start_para, start_offset, end_para, end_offset, text, color || null, note || null]
+      `insert into forge.highlights (id, book_id, start_para, start_offset, end_para, end_offset, text, color, note)
+       values (coalesce($9::uuid, gen_random_uuid()),$1,$2,$3,$4,$5,$6,$7,$8)
+       on conflict (id) do update set id = excluded.id
+       returning *`,
+      [book_id, start_para, start_offset, end_para, end_offset, text, color || null, note || null, id || null]
     );
     res.json(rows[0]);
   } catch (err) { res.status(400).json({ error: err.message }); }
@@ -791,13 +795,14 @@ app.get('/api/books/:id/bookmarks', async (req, res) => {
 
 app.post('/api/bookmarks', async (req, res) => {
   try {
-    const { book_id, paragraph, snippet } = req.body || {};
+    // `id` may come from the client (bookmarks made offline, sent later).
+    const { id, book_id, paragraph, snippet } = req.body || {};
     if (!book_id || !Number.isInteger(paragraph) || paragraph < 0) return res.status(400).json({ error: 'Некорректная закладка' });
     const { rows } = await pool.query(
-      `insert into forge.bookmarks (book_id, paragraph, snippet) values ($1,$2,$3)
+      `insert into forge.bookmarks (id, book_id, paragraph, snippet) values (coalesce($4::uuid, gen_random_uuid()),$1,$2,$3)
        on conflict (book_id, paragraph) do update set snippet = excluded.snippet
        returning *`,
-      [book_id, paragraph, (snippet || '').slice(0, 300) || null]
+      [book_id, paragraph, (snippet || '').slice(0, 300) || null, id || null]
     );
     res.json(rows[0]);
   } catch (err) { res.status(400).json({ error: err.message }); }
@@ -994,7 +999,11 @@ app.delete('/api/saved-words/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.use(express.static(DIST));
+// sw.js is re-checked on every visit, so a new build's offline copy
+// replaces the old one.
+app.use(express.static(DIST, {
+  setHeaders: (res, path) => { if (path.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache'); },
+}));
 app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')));
 // Additive, idempotent schema upgrades for columns added after the initial
 // db/schema.sql was applied — keeps deploys self-sufficient.

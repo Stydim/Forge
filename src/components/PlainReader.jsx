@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bookmark, BookmarkMinus, Check, Copy, NotebookPen, Pause, Play, Quote, Share2, Trash2 } from 'lucide-react';
+import { Bookmark, BookmarkMinus, Check, CloudOff, Copy, NotebookPen, Pause, Play, Quote, RefreshCw, Share2, Trash2 } from 'lucide-react';
 import * as api from '../lib/api';
+import { flushOutbox, getCachedText, hasPending, newId, online, putCachedText, send, useConnection } from '../lib/offline';
 
 // Highlight palette, as in the selection menu: soft tints that keep text
 // readable on the page.
@@ -72,18 +73,43 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   // Side panel: marks in view, or all of the book's.
   const [showAllMarks, setShowAllMarks] = useState(false);
 
+  // With a network the book is fetched and saved on the device; without one
+  // it's read from that saved copy (fromCache), changes being queued.
+  const [fromCache, setFromCache] = useState(false);
+  const { offline, pending } = useConnection();
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.getBookText(book.id), api.listHighlights(book.id), api.listBookmarks(book.id)])
-      .then(([text, hs, bms]) => {
-        if (cancelled) return;
-        setParagraphs(text.paragraphs);
-        setHighlights(hs);
-        setBookmarks(bms);
-      })
-      .catch((err) => { if (!cancelled) setError(err.message); });
+    (async () => {
+      await flushOutbox();
+      let data;
+      try {
+        const [text, hs, bms] = await online(() => Promise.all([api.getBookText(book.id), api.listHighlights(book.id), api.listBookmarks(book.id)]));
+        data = { book: text.book, paragraphs: text.paragraphs, highlights: hs, bookmarks: bms };
+        // Marks made offline that still couldn't be sent stay as on the device.
+        const saved = (await hasPending(book.id)) ? await getCachedText(book.id) : null;
+        if (saved?.highlights) data = { ...data, highlights: saved.highlights, bookmarks: saved.bookmarks };
+        await putCachedText(book.id, data);
+        if (!cancelled) setFromCache(false);
+      } catch (err) {
+        if (!err.offline) throw err;
+        data = await getCachedText(book.id);
+        if (!data?.paragraphs) throw new Error('нет сети, а эта книга ещё не сохранена на устройстве. Откройте её один раз с интернетом — потом она будет открываться и без него.');
+        if (!cancelled) setFromCache(true);
+      }
+      if (cancelled) return;
+      loadedIdRef.current = book.id;
+      setParagraphs(data.paragraphs);
+      setHighlights(data.highlights || []);
+      setBookmarks(data.bookmarks || []);
+    })().catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [book.id]);
+
+  // The saved copy follows every change to the marks.
+  const loadedIdRef = useRef(null);
+  useEffect(() => {
+    if (loadedIdRef.current === book.id) putCachedText(book.id, { highlights, bookmarks });
+  }, [book.id, highlights, bookmarks]);
 
   const paraEl = (pos) => articleRef.current?.querySelector(`[data-pos="${pos}"]`);
 
@@ -321,14 +347,29 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
 
   // Colour (or note) on a fresh selection creates the highlight; on an
   // existing one it updates it. The menu then stays on that highlight.
+  // Marks are sent right away when the server can be reached; otherwise
+  // they're queued (see lib/offline.js) and shown as made. New ones get
+  // their id here so later edits of a queued one find it on the server.
+  const createHighlight = async (fields) => {
+    const h = { id: newId(), book_id: book.id, note: null, created_at: new Date().toISOString(), ...fields };
+    return (await send('/highlights', { method: 'POST', body: h, bookId: book.id })) || h;
+  };
+  const updateHighlight = async (h, fields) => (
+    (await send(`/highlights/${h.id}`, { method: 'PATCH', body: fields, bookId: book.id })) || { ...h, ...fields }
+  );
+  const createBookmark = async (fields) => {
+    const b = { id: newId(), book_id: book.id, created_at: new Date().toISOString(), ...fields };
+    return (await send('/bookmarks', { method: 'POST', body: b, bookId: book.id })) || b;
+  };
+
   const setColor = async (color) => {
     try {
       if (menu.highlight) {
-        const h = await api.updateHighlight(menu.highlight.id, { color });
+        const h = await updateHighlight(menu.highlight, { color });
         setHighlights((prev) => prev.map((x) => (x.id === h.id ? h : x)));
         setMenu((m) => ({ ...m, highlight: h }));
       } else {
-        const h = await api.createHighlight({ book_id: book.id, ...menu.range, color });
+        const h = await createHighlight({ ...menu.range, color });
         setHighlights((prev) => [...prev, h]);
         window.getSelection()?.removeAllRanges();
         setMenu((m) => ({ highlight: h, top: m.top, left: m.left, width: m.width }));
@@ -340,10 +381,10 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
     const note = (noteDraft || '').trim() || null;
     try {
       if (menu.highlight) {
-        const h = await api.updateHighlight(menu.highlight.id, { note });
+        const h = await updateHighlight(menu.highlight, { note });
         setHighlights((prev) => prev.map((x) => (x.id === h.id ? h : x)));
       } else {
-        const h = await api.createHighlight({ book_id: book.id, ...menu.range, color: COLORS[0], note });
+        const h = await createHighlight({ ...menu.range, color: COLORS[0], note });
         setHighlights((prev) => [...prev, h]);
       }
       setToast('Заметка сохранена');
@@ -354,12 +395,12 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
   const toggleBookmark = async () => {
     try {
       if (bookmarkHere) {
-        await api.deleteBookmark(bookmarkHere.id);
+        await send(`/bookmarks/${bookmarkHere.id}`, { method: 'DELETE', bookId: book.id });
         setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkHere.id));
         setToast('Закладка убрана');
       } else {
         const para = paragraphs.find((p) => p.position === menuPara);
-        const b = await api.createBookmark({ book_id: book.id, paragraph: menuPara, snippet: para?.text.slice(0, 160) });
+        const b = await createBookmark({ paragraph: menuPara, snippet: para?.text.slice(0, 160) });
         setBookmarks((prev) => [...prev.filter((x) => x.paragraph !== b.paragraph), b].sort((x, y) => x.paragraph - y.paragraph));
         setToast('Закладка поставлена');
       }
@@ -386,7 +427,7 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
     try {
       await onSaveQuote({ text: menuText, author: book.author || '', bookId: book.id });
       setToast('Цитата сохранена — она в рамке на полке');
-    } catch (err) { setToast(err.message); }
+    } catch (err) { setToast(err.offline ? 'Нет сети — цитату можно будет сохранить, когда появится интернет' : err.message); }
     closeMenu();
   };
 
@@ -394,7 +435,7 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
     const h = menu.highlight;
     setHighlights((prev) => prev.filter((x) => x.id !== h.id));
     closeMenu();
-    try { await api.deleteHighlight(h.id); } catch (err) { setToast(err.message); }
+    try { await send(`/highlights/${h.id}`, { method: 'DELETE', bookId: book.id }); } catch (err) { setToast(err.message); }
   };
 
   const bookmarked = useMemo(() => new Set(bookmarks.map((b) => b.paragraph)), [bookmarks]);
@@ -468,6 +509,17 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
           </label>
           <span className="reader-toolbar-sep" />
           <span className="reader-plain-pageno">прочитано {percentAt(visible.first)}%</span>
+          {(offline || pending > 0) && (
+            <span
+              className="reader-offline-note"
+              role="status"
+              title={pending > 0 ? 'Позиция и отметки сохранены на устройстве и уйдут на сервер, когда появится сеть' : undefined}
+            >
+              {offline ? <CloudOff size={14} /> : <RefreshCw size={14} />}
+              {offline ? `Без сети${fromCache ? ' · сохранённая копия' : ''}` : 'Отправляем изменения…'}
+              {offline && pending > 0 && <span className="reader-offline-pending"> · {pending} изм. ждут сети</span>}
+            </span>
+          )}
         </div>
       </div>
 
