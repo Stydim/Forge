@@ -113,19 +113,41 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
 
   const paraEl = (pos) => articleRef.current?.querySelector(`[data-pos="${pos}"]`);
 
-  // Puts paragraph `pos` at the top of the window.
-  const scrollToPara = useCallback((pos, smooth) => {
+  // How far into the top paragraph the window is (0..1), so the exact line
+  // survives a reflow, not just the paragraph.
+  const anchorFracRef = useRef(0);
+
+  // Puts paragraph `pos` at the top of the window (`frac` of the way in).
+  const scrollToPara = useCallback((pos, smooth, frac = 0) => {
     const view = viewRef.current;
     const el = articleRef.current?.querySelector(`[data-pos="${pos}"]`);
     if (!view || !el) return;
-    view.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: smooth ? 'smooth' : 'instant' });
+    const top = frac > 0 ? el.offsetTop + frac * el.offsetHeight - 16 : el.offsetTop - 12;
+    view.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'instant' });
   }, []);
 
-  // Open where the reader left off, and keep that paragraph at the top when
-  // the font or its size changes.
+  // Open where the reader left off, and keep that place at the top when the
+  // font or its size changes.
   useLayoutEffect(() => {
-    if (paragraphs) scrollToPara(anchorRef.current, false);
+    if (paragraphs) scrollToPara(anchorRef.current, false, anchorFracRef.current);
   }, [paragraphs, textStyle.fontSize, textStyle.fontFamily, scrollToPara]);
+
+  // Turning the phone (or resizing the window) re-wraps the text while the
+  // scroll offset stays in pixels, which would show — and save — some other
+  // place. A width change puts the remembered place back instead.
+  const widthRef = useRef(0);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!paragraphs || !view) return undefined;
+    widthRef.current = view.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (view.clientWidth === widthRef.current) return;
+      widthRef.current = view.clientWidth;
+      scrollToPara(anchorRef.current, false, anchorFracRef.current);
+    });
+    ro.observe(view);
+    return () => ro.disconnect();
+  }, [paragraphs, scrollToPara]);
 
   // Track what's in the window: the paragraph at the top is the reading
   // position (saved shortly after scrolling settles, and right away on
@@ -147,11 +169,16 @@ export default function PlainReader({ book, textStyle, onProgress, onPosition, o
     const measure = () => {
       raf = 0;
       if (!els.length) return;
+      // Width just changed: the text is re-wrapping and the observer above
+      // is about to restore the place — don't take this view as a new one.
+      if (widthRef.current && view.clientWidth !== widthRef.current) return;
       const top = view.scrollTop + 16;
       const fi = firstBelow(top);
       const li = firstBelow(view.scrollTop + view.clientHeight - 16);
       const first = Number(els[fi].dataset.pos);
       const last = Number(els[li].dataset.pos);
+      const el = els[fi];
+      anchorFracRef.current = el.offsetHeight ? Math.min(1, Math.max(0, (top - el.offsetTop) / el.offsetHeight)) : 0;
       setVisible((v) => (v.first === first && v.last === last ? v : { first, last }));
       if (anchorRef.current !== first) {
         anchorRef.current = first;
