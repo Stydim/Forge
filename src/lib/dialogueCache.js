@@ -1,5 +1,6 @@
-// Persists each task's last-generated dialogue across full page reloads
-// (in-memory state/refs don't survive those). Keyed by character+task; a new
+// Local copy of each task's dialogue, for showing it instantly on load —
+// the server's forge.dialogue_cache is the shared source of truth across
+// devices (see /api/gnome-message). Keyed by character+task; a new
 // entry only overwrites the old one when the task's stage OR due-bucket
 // changes (due-bucket catches a task quietly crossing from upcoming to
 // overdue with no snooze action, which wouldn't otherwise bump the stage).

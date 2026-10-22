@@ -228,10 +228,62 @@ app.post('/api/parse-task', async (req, res) => {
   }
 });
 
+// Character dialogue is cached per (character, task) in the database, so a
+// line is generated once and every device shows the same one. A new line is
+// generated only when the situation changes: the escalation stage (snoozes)
+// or the due bucket (none / upcoming / overdue).
+const DUE_BUCKETS = new Set(['none', 'upcoming', 'overdue']);
+const cleanLines = (lines) => (Array.isArray(lines)
+  ? lines.filter((l) => typeof l === 'string' && l.trim()).map((l) => l.trim().slice(0, 300)).slice(0, 2)
+  : []);
+
+// Stores lines for a situation unless another device already stored lines
+// for that same situation first; either way returns the canonical lines.
+async function storeDialogue(characterId, taskId, stage, dueBucket, lines) {
+  const { rows } = await pool.query(`
+    insert into forge.dialogue_cache (character_id, task_id, stage, due_bucket, lines)
+    values ($1, $2, $3, $4, $5)
+    on conflict (character_id, task_id) do update
+      set stage = excluded.stage, due_bucket = excluded.due_bucket, lines = excluded.lines, created_at = now()
+      where (forge.dialogue_cache.stage, forge.dialogue_cache.due_bucket)
+        is distinct from (excluded.stage, excluded.due_bucket)
+    returning lines
+  `, [characterId, taskId, stage, dueBucket, JSON.stringify(lines)]);
+  if (rows.length) return rows[0].lines;
+  const existing = await pool.query(
+    'select lines from forge.dialogue_cache where character_id = $1 and task_id = $2',
+    [characterId, taskId]
+  );
+  return existing.rows[0]?.lines || lines;
+}
+
 app.post('/api/gnome-message', async (req, res) => {
   try {
     const { characterName, characterPower, characterHelps, stage, taskTitle, snoozeCount, dueStatus } = req.body || {};
     if (!taskTitle || !stage) return res.status(400).json({ error: 'taskTitle and stage are required' });
+
+    // Cached path (callers that identify the character and task).
+    const characterId = typeof req.body.characterId === 'string' ? req.body.characterId : null;
+    const taskId = req.body.taskId != null ? String(req.body.taskId) : null;
+    const dueBucket = DUE_BUCKETS.has(req.body.dueBucket) ? req.body.dueBucket : 'none';
+    const stageNum = Number(stage) || 1;
+    const cacheable = characterId && taskId;
+    if (cacheable) {
+      const { rows } = await pool.query(
+        'select stage, due_bucket, lines from forge.dialogue_cache where character_id = $1 and task_id = $2',
+        [characterId, taskId]
+      );
+      const row = rows[0];
+      if (row && row.stage === stageNum && row.due_bucket === dueBucket) {
+        return res.json({ lines: row.lines, cached: true });
+      }
+      // A device that already has lines for this situation (from before the
+      // shared cache existed) hands them over instead of spending a new call.
+      const known = cleanLines(req.body.knownLines);
+      if (known.length) {
+        return res.json({ lines: await storeDialogue(characterId, taskId, stageNum, dueBucket, known), cached: true });
+      }
+    }
 
     const dueLine = dueStatus
       ? `Статус срока задачи: ${dueStatus}.
@@ -254,8 +306,9 @@ ${dueLine}
       { role: 'user', content: `Ступень ${stage}, задача «${taskTitle}».` },
     ], { maxTokens: 200 });
 
-    const lines = Array.isArray(parsed.lines) ? parsed.lines.filter((l) => typeof l === 'string').slice(0, 2) : [];
+    const lines = cleanLines(parsed.lines);
     if (lines.length === 0) throw new Error('Grok returned no usable lines');
+    if (cacheable) return res.json({ lines: await storeDialogue(characterId, taskId, stageNum, dueBucket, lines) });
     res.json({ lines });
   } catch (err) {
     console.error('gnome-message failed:', err.message);
@@ -977,6 +1030,17 @@ async function migrate() {
       snippet text,
       created_at timestamptz not null default now(),
       unique (book_id, paragraph)
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.dialogue_cache (
+      character_id text not null,
+      task_id text not null,
+      stage integer not null,
+      due_bucket text not null,
+      lines jsonb not null,
+      created_at timestamptz not null default now(),
+      primary key (character_id, task_id)
     )
   `);
   await pool.query(`

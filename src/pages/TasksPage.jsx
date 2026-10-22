@@ -120,23 +120,25 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
         : `срок ещё не наступил — ${formatUpcoming(activeTask.due_at, null, activeTask.due_has_time)}`;
 
     const key = `${character.id}:${activeTask.id}:${stage}:${dueBucket}`;
-    const cached = getDialogue(character.id, activeTask.id);
-    if (cached && cached.stage === stage && cached.dueBucket === dueBucket) {
-      requestKeyRef.current = key;
-      setAiLines(cached.lines);
-      setAiFailed(false);
-      return;
-    }
-
-    if (requestKeyRef.current === key) return; // this exact combo is already in flight
+    if (requestKeyRef.current === key) return; // this exact combo is shown / in flight
     requestKeyRef.current = key;
-    // Don't fall back to the static phrase here — that's what caused the
-    // "old pinned phrase flashes, then the real one replaces it" flicker.
-    // Show a loading state instead, and only use the static lines if the AI
-    // call genuinely fails.
-    setAiLines(null);
+
+    // The server keeps one dialogue per character+task for all devices and
+    // only generates a new one when stage or due bucket changes. The local
+    // copy just shows instantly while the server is asked; if the server
+    // already holds a different line for this situation (made on another
+    // device), that one wins and replaces the local copy.
+    const cached = getDialogue(character.id, activeTask.id);
+    const localHit = cached && cached.stage === stage && cached.dueBucket === dueBucket;
+    // Without a local copy, show a loading state rather than the static
+    // phrase — swapping a static phrase for the real one read as a flicker.
+    setAiLines(localHit ? cached.lines : null);
     setAiFailed(false);
     fetchGnomeLines({
+      characterId: character.id,
+      taskId: activeTask.id,
+      dueBucket,
+      knownLines: localHit ? cached.lines : undefined,
       characterName: character.name,
       characterPower: character.power,
       characterHelps: character.helps,
@@ -149,7 +151,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
       if (result) {
         setDialogue(character.id, activeTask.id, stage, result, dueBucket);
         setAiLines(result);
-      } else {
+      } else if (!localHit) {
         setAiFailed(true);
       }
     });

@@ -183,3 +183,16 @@ create table forge.bookmarks (
   created_at timestamptz not null default now(),
   unique (book_id, paragraph)
 );
+
+-- Character dialogue cache: the lines shown for a task, shared by all
+-- devices. Regenerated only when the task's escalation stage or due bucket
+-- (none / upcoming / overdue) changes.
+create table forge.dialogue_cache (
+  character_id text not null,
+  task_id text not null,
+  stage integer not null,
+  due_bucket text not null,
+  lines jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (character_id, task_id)
+);
