@@ -648,10 +648,30 @@
 .reader-plain-list-note { font-size: 13px; color: var(--r-ink-dim); font-style: italic; }
 .reader-plain-list-pos { font-size: 12px; color: var(--r-ink-dimmer); flex: 0 0 auto; white-space: nowrap; }
 
+/* The marks panel moves under the text once the reader itself is narrow —
+   measured on the reader, not the screen: a landscape tablet is wide, but
+   after the app's sidebar a 290px panel would squeeze the text into a
+   strip. */
+.reader-reading-layout.plain .reader-main { container-type: inline-size; }
+@container (max-width: 860px) {
+  .reader-plain-layout { flex-direction: column; }
+  .reader-plain-main { width: 100%; }
+  .reader-plain-aside { position: static; flex-basis: auto; width: 100%; max-height: 360px; }
+}
 @media (max-width: 900px) {
   .reader-plain-layout { flex-direction: column; }
   .reader-plain-main { width: 100%; }
   .reader-plain-aside { position: static; flex-basis: auto; width: 100%; max-height: 360px; }
+}
+/* Landscape tablets: little height, so a compact header and a text window
+   that takes the rest of the screen, with its controls still in view.
+   (Phones turned sideways are lower than 500px and keep their layout.) */
+@media (orientation: landscape) and (min-height: 500px) and (max-height: 760px) and (min-width: 769px) {
+  .reader-page.reader-reading { padding-top: 16px; padding-bottom: 16px; }
+  .reader-reading .reader-subnav { margin-bottom: 10px; }
+  .reader-reading .reader-book-header { margin-bottom: 12px; }
+  .reader-reading .reader-h1 { font-size: 1.8rem; }
+  .reader-plain-page { height: max(260px, calc(100vh - 190px)); height: max(260px, calc(100dvh - 190px)); }
 }
 @media (max-width: 768px) {
   .reader-plain-page { --page-pad-x: 22px; --page-pad-y: 24px; height: clamp(360px, calc(100vh - 250px), 900px); border-radius: 14px; }
