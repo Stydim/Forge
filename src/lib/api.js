@@ -1,6 +1,6 @@
 // Thin fetch client for the app's own REST API (server.js): both the Grok
-// proxy endpoints and the forge-schema data endpoints on Render Postgres
-// that replaced direct supabase-js table access — see server.js for routes.
+// proxy endpoints and the forge-schema data endpoints on Render Postgres —
+// see server.js for routes.
 const BASE = '/api';
 
 export async function parseTaskText(text) {

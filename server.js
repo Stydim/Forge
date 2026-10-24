@@ -317,8 +317,8 @@ ${dueLine}
 });
 
 // ---------------------------------------------------------------------------
-// Data API (forge schema on Render Postgres) — replaces direct supabase-js
-// table access. Column lists below are allowlists for dynamic insert/patch
+// Data API (forge schema on Render Postgres). Column lists below are
+// allowlists for dynamic insert/patch
 // query building; names never come from the request itself, so there's no
 // injection surface even though the SQL text is assembled per-request.
 const TASK_COLUMNS = [
