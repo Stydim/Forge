@@ -186,6 +186,15 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   const handleDone = async (id) => { await completeTask(id); reloadStats(); };
   const handleSnooze = async (id, hours) => { onSelectTask(id); await snoozeTask(id, hours); reloadStats(); };
   const handleSelect = (id) => onSelectTask(id);
+  // From the character panel: scroll the dialogue's task into view and pulse it.
+  const showTaskCard = (id) => {
+    const card = document.querySelector(`[data-task-id="${id}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.remove('task-card-pulse');
+    void card.offsetWidth; // restart the animation
+    card.classList.add('task-card-pulse');
+  };
 
   const [parsing, setParsing] = useState(false);
 
@@ -314,7 +323,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
 
       <GnomePanel
         character={character}
-        activeTaskTitle={activeTask?.title}
+        activeTask={activeTask}
+        onShowTask={showTaskCard}
         stage={stage}
         lines={lines}
         linesLoading={linesLoading}
