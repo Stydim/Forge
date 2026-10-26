@@ -52,7 +52,6 @@ export default function GnomePanel({ character, activeTaskTitle, stage, lines, l
       )}
 
       <Link to="/characters" className="gnome-switch-btn">Сменить персонажа</Link>
-      <div className="gnome-panel-footnote">Брифинг приходит в 8:00 в приложение и на почту</div>
     </aside>
   );
 }

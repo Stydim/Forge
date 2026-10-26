@@ -908,13 +908,6 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 .gnome-switch-btn:hover { border-color: var(--text-tertiary); background: var(--bg-chip); }
 
-.gnome-panel-footnote {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  text-align: center;
-  line-height: 1.4;
-}
-
 /* ---------- Characters page ---------- */
 .characters-page {
   padding: 32px;
