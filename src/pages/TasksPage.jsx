@@ -40,10 +40,12 @@ function deriveDisplay(task) {
     const snoozePart = task.snooze_count
       ? ` · отложено ${task.snooze_count} ${pluralRu(task.snooze_count, 'раз', 'раза', 'раз')}`
       : '';
+    // (No "N-е напоминание" here: reminder_count is a leftover from the early
+    // mock-ups — nothing ever increments it, so it always read "0-е".)
     return {
       ...task,
       subtasks,
-      meta: `${formatOverdue(task.due_at)} · ${task.reminder_count}-е напоминание${snoozePart}`,
+      meta: `${formatOverdue(task.due_at)}${snoozePart}`,
       display: 'urgent',
     };
   }
