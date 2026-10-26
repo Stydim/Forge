@@ -232,7 +232,7 @@ app.post('/api/parse-task', async (req, res) => {
 // line is generated once and every device shows the same one. A new line is
 // generated only when the situation changes: the escalation stage (snoozes)
 // or the due bucket (none / upcoming / overdue).
-const DUE_BUCKETS = new Set(['none', 'upcoming', 'overdue']);
+const DUE_BUCKETS = new Set(['none', 'upcoming', 'overdue-hours', 'overdue-days', 'overdue-week', 'overdue-long']);
 const cleanLines = (lines) => (Array.isArray(lines)
   ? lines.filter((l) => typeof l === 'string' && l.trim()).map((l) => l.trim().slice(0, 300)).slice(0, 2)
   : []);
@@ -301,10 +301,13 @@ app.post('/api/gnome-message', async (req, res) => {
 ${dueLine}
 Ступень 1 — максимально мягко и спокойно. Дальше нет потолка: чем выше ступень, тем сильнее нарастает эмоция (усталость, сарказм, чёрный юмор, драматичное отчаяние на очень высоких ступенях) — но всегда без грубости и оскорблений личности.
 Придумай ДВЕ короткие фразы от лица персонажа (каждая до 90 символов) в тоне, точно соответствующем ступени ${stage} (и статусу срока выше, если он есть). Это должны быть свежие формулировки — не используй шаблонные фразы вроде "энный раз напоминаю", придумывай каждый раз по-новому.
+ВАЖНО: фразы сохраняются и показываются ещё несколько дней, поэтому НЕ называй точное время — никаких "три часа", "50 часов", "второй день", "сутки" и т.п. и никаких конкретных чисел. Говори о давности только качественно и в точном соответствии со статусом срока: если просрочено меньше суток — "срок только что прошёл", "уже просрочено"; если пару дней — "уже не первый день"; если почти неделю или больше — "давно", "время идёт, а дело стоит". Не преувеличивай давность. Точную цифру пользователь и так видит на карточке.
 Ответь СТРОГО JSON без пояснений и без markdown-разметки: {"lines": [string, string]}.`,
       },
       { role: 'user', content: `Ступень ${stage}, задача «${taskTitle}».` },
-    ], { maxTokens: 200 });
+    // 30s: the reply is cached for good, so waiting a bit longer beats
+    // falling back to a stock phrase when Grok is slow to start.
+    ], { maxTokens: 200, timeoutMs: 30000 });
 
     const lines = cleanLines(parsed.lines);
     if (lines.length === 0) throw new Error('Grok returned no usable lines');

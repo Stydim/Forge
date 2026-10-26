@@ -28,3 +28,12 @@ export function computeStreaks(dateKeys) {
 
   return { current, record: Math.max(record, current) };
 }
+
+// Average snoozes per task over a period: the tasks completed in it plus the
+// ones still open. Open tasks are where snoozes actually pile up — counting
+// only completed ones showed "0,0" while an open task sat snoozed on screen.
+export function averageSnoozes(completedInPeriod, openTasks) {
+  const tasks = [...completedInPeriod, ...(openTasks ?? [])];
+  if (!tasks.length) return null;
+  return tasks.reduce((sum, t) => sum + (t.snooze_count || 0), 0) / tasks.length;
+}

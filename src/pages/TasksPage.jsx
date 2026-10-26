@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DAY_MS } from '../lib/streaks';
 import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/TaskCard';
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
@@ -110,14 +111,28 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     // only by snooze_count) happens to be 1. Also doubles as part of the
     // cache key so a task quietly crossing into "overdue" while sitting
     // untouched (no snooze) still gets a fresh, appropriately-toned line.
-    const dueBucket = !activeTask.due_at
+    //
+    // Overdue is split by how long (under a day, 1-3 days, 3-7 days, over a
+    // week): the line is cached and shown for days, so it must not quote an
+    // exact duration ("три часа висит долг" next to a card saying 33 hours),
+    // but its tone should still harden as the debt ages — a new bucket gets
+    // a fresh line.
+    const overdueMs = activeTask.due_at ? Date.now() - new Date(activeTask.due_at).getTime() : null;
+    const dueBucket = overdueMs == null
       ? 'none'
-      : new Date(activeTask.due_at).getTime() < Date.now() ? 'overdue' : 'upcoming';
-    const dueStatus = dueBucket === 'none'
-      ? 'без срока'
-      : dueBucket === 'overdue'
-        ? `просрочено — ${formatOverdue(activeTask.due_at)}`
-        : `срок ещё не наступил — ${formatUpcoming(activeTask.due_at, null, activeTask.due_has_time)}`;
+      : overdueMs < 0 ? 'upcoming'
+        : overdueMs < DAY_MS ? 'overdue-hours'
+          : overdueMs < 3 * DAY_MS ? 'overdue-days'
+            : overdueMs < 7 * DAY_MS ? 'overdue-week'
+              : 'overdue-long';
+    const dueStatus = {
+      none: 'без срока',
+      upcoming: `срок ещё не наступил — ${formatUpcoming(activeTask.due_at, null, activeTask.due_has_time)}`,
+      'overdue-hours': 'просрочено недавно, меньше суток',
+      'overdue-days': 'просрочено уже пару дней',
+      'overdue-week': 'просрочено несколько дней, почти неделю',
+      'overdue-long': 'просрочено больше недели, давно',
+    }[dueBucket];
 
     const key = `${character.id}:${activeTask.id}:${stage}:${dueBucket}`;
     if (requestKeyRef.current === key) return; // this exact combo is shown / in flight
@@ -164,8 +179,10 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     : null;
   const caption = stats ? describeSnoozePattern(stats.hourBuckets) : null;
 
-  const handleDone = (id) => { completeTask(id); reloadStats(); };
-  const handleSnooze = (id, hours) => { onSelectTask(id); snoozeTask(id, hours); reloadStats(); };
+  // Stats are re-read only after the change is saved, or the tiles and the
+  // chart would lag one action behind the cards.
+  const handleDone = async (id) => { await completeTask(id); reloadStats(); };
+  const handleSnooze = async (id, hours) => { onSelectTask(id); await snoozeTask(id, hours); reloadStats(); };
   const handleSelect = (id) => onSelectTask(id);
 
   const [parsing, setParsing] = useState(false);

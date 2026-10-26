@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
-import { DAY_MS, localDateKey, computeStreaks } from '../lib/streaks';
+import { DAY_MS, localDateKey, computeStreaks, averageSnoozes } from '../lib/streaks';
 
 export function useStats() {
   const [stats, setStats] = useState(null);
@@ -10,11 +10,12 @@ export function useStats() {
     setLoading(true);
     const since = new Date(Date.now() - 30 * DAY_MS).toISOString();
 
-    let completed, snoozeEvents;
+    let completed, snoozeEvents, openTasks;
     try {
-      [completed, snoozeEvents] = await Promise.all([
+      [completed, snoozeEvents, openTasks] = await Promise.all([
         api.listCompletedTaskStats(),
         api.listSnoozeEventsSince(since),
+        api.listOpenTasks(),
       ]);
     } catch {
       setStats(null);
@@ -30,9 +31,7 @@ export function useStats() {
       ? Math.round((withDue.filter((t) => t.completed_at <= t.due_at).length / withDue.length) * 100)
       : null;
 
-    const avgSnoozes = recent.length
-      ? recent.reduce((sum, t) => sum + t.snooze_count, 0) / recent.length
-      : null;
+    const avgSnoozes = averageSnoozes(recent, openTasks);
 
     const hourBuckets = new Array(24).fill(0);
     (snoozeEvents ?? []).forEach((s) => {

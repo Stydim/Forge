@@ -143,7 +143,8 @@ export function useTasks() {
 
   const completeTask = useCallback((id) => {
     const task = tasks.find((t) => t.id === id);
-    if (task) completeAndRespawn(task);
+    // Returned so callers can wait for the save (e.g. before reloading stats).
+    return task ? completeAndRespawn(task) : undefined;
   }, [tasks, completeAndRespawn]);
 
   const snoozeTask = useCallback(async (id, hours = 1) => {
@@ -159,8 +160,9 @@ export function useTasks() {
       setError(err.message); load(); return;
     }
 
-    // Best-effort: powers the "по часам" chart, but shouldn't block the snooze itself.
-    api.insertSnoozeEvent(id).catch((err) => console.warn('snooze_events insert failed:', err.message));
+    // Best-effort: powers the "по часам" chart — a failure doesn't undo the
+    // snooze, but it's awaited so stats reloaded after this see the event.
+    await api.insertSnoozeEvent(id).catch((err) => console.warn('snooze_events insert failed:', err.message));
   }, [tasks, load]);
 
   const toggleSubtask = useCallback(async (subtaskId, done) => {

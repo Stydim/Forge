@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
-import { DAY_MS, localDateKey, computeStreaks } from '../lib/streaks';
+import { DAY_MS, localDateKey, computeStreaks, averageSnoozes } from '../lib/streaks';
 
 const WINDOW_DAYS = 90;
 const CHART_DAYS = 30;
@@ -13,11 +13,12 @@ export function useProgress() {
     setLoading(true);
     const since90 = new Date(Date.now() - WINDOW_DAYS * DAY_MS).toISOString();
 
-    let completed, snoozeEvents;
+    let completed, snoozeEvents, openTasks;
     try {
-      [completed, snoozeEvents] = await Promise.all([
+      [completed, snoozeEvents, openTasks] = await Promise.all([
         api.listCompletedTaskStats(),
         api.listSnoozeEventsSince(since90),
+        api.listOpenTasks(),
       ]);
     } catch {
       setStats(null);
@@ -32,9 +33,7 @@ export function useProgress() {
     const onTimeRate = withDue.length
       ? Math.round((withDue.filter((t) => t.completed_at <= t.due_at).length / withDue.length) * 100)
       : null;
-    const avgSnoozes = recent90.length
-      ? recent90.reduce((sum, t) => sum + t.snooze_count, 0) / recent90.length
-      : null;
+    const avgSnoozes = averageSnoozes(recent90, openTasks);
 
     // How many tasks were completed on each of the last CHART_DAYS days
     // (index 0 = oldest, last index = today).
