@@ -2229,3 +2229,10 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .task-filter-sep { width: 1px; align-self: stretch; background: var(--border-color); margin: 2px 2px; }
 .task-filter-today.active { background: var(--accent-teal); border-color: var(--accent-teal); color: var(--text-inverse); }
 .task-filter-empty { color: var(--text-secondary); font-size: 0.9375rem; padding: 18px 4px; }
+
+/* "Готово" while the checklist still has unticked items */
+.task-modal-btn.save:disabled,
+.task-card .btn-pill:disabled { opacity: 0.4; cursor: not-allowed; }
+.task-modal-btn.save:disabled:hover { background: var(--accent-red); }
+.task-card .btn-pill-solid-red:disabled:hover { background: var(--accent-red); }
+.task-card .btn-pill-outline-teal:disabled:hover { background: transparent; }

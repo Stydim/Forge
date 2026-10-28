@@ -42,3 +42,6 @@ export const newChecklistItem = (title) => ({
   title,
   done: false,
 });
+
+// Unticked checklist items — a task can't be marked done while any remain.
+export const openChecklistCount = (task) => (task.checklist || []).filter((c) => !c.done).length;

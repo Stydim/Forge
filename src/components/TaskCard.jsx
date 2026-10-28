@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ListChecks, Pencil, Timer } from 'lucide-react';
 import { pluralRu } from '../lib/format';
-import { formatDurationShort, priorityOf } from '../lib/taskDetails';
+import { formatDurationShort, openChecklistCount, priorityOf } from '../lib/taskDetails';
+
+// "Готово" stays disabled until every checklist item is ticked.
+const doneGate = (task) => {
+  const open = openChecklistCount(task);
+  return open > 0 ? { disabled: true, title: `Сначала отметьте все пункты чек-листа (осталось ${open})` } : {};
+};
 
 // Title with the priority dot in front (none = no dot).
 function CardTitle({ task }) {
@@ -165,7 +171,7 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit,
           <CardDetails task={task} meta={meta} />
         </div>
         <div className="task-card-actions">
-          <button className="btn-pill btn-pill-solid-red" onClick={() => onDone?.(task.id)}>
+          <button className="btn-pill btn-pill-solid-red" onClick={() => onDone?.(task.id)} {...doneGate(task)}>
             Готово
           </button>
           <SnoozeButton task={task} onSnooze={onSnooze} className="btn-pill btn-pill-outline-red" label="Отложить" />
@@ -188,7 +194,7 @@ export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit,
           <CardDetails task={task} meta={meta} />
         </div>
         <div className="task-card-actions">
-          <button className="btn-pill btn-pill-outline-teal" onClick={() => onDone?.(task.id)}>
+          <button className="btn-pill btn-pill-outline-teal" onClick={() => onDone?.(task.id)} {...doneGate(task)}>
             Готово
           </button>
           <SnoozeButton task={task} onSnooze={onSnooze} className="btn-pill btn-pill-outline" label="Отложить" />

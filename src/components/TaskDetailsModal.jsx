@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { Check, Pencil, Timer, X } from 'lucide-react';
-import { formatDurationShort, priorityOf } from '../lib/taskDetails';
+import { formatDurationShort, openChecklistCount, priorityOf } from '../lib/taskDetails';
 
 // Opens on a click on a task card: the task's notes (description), its
 // checklist with items that can be ticked right here, category/tags/time,
@@ -14,6 +14,7 @@ export default function TaskDetailsModal({ task, meta, timer, onClose, onCheckli
   const spent = task.time_spent_seconds || 0;
   const target = task.time_target_minutes || 0;
   const timerHere = timer?.taskId === task.id;
+  const openItems = openChecklistCount(task);
 
   const toggle = (id) => onChecklistChange(task.id, checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c)));
 
@@ -77,7 +78,15 @@ export default function TaskDetailsModal({ task, meta, timer, onClose, onCheckli
             <button type="button" className="task-modal-btn-small" onClick={() => onOpenTimer(task.id)}><Timer size={14} /> Таймер</button>
           </div>
           <div className="task-modal-actions-right">
-            <button type="button" className="task-modal-btn save" onClick={() => onDone(task.id)}>Готово</button>
+            <button
+              type="button"
+              className="task-modal-btn save"
+              onClick={() => onDone(task.id)}
+              disabled={openItems > 0}
+              title={openItems > 0 ? `Сначала отметьте все пункты чек-листа (осталось ${openItems})` : undefined}
+            >
+              Готово
+            </button>
           </div>
         </div>
       </div>
