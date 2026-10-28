@@ -19,6 +19,9 @@ import { useHabits } from './hooks/useHabits';
 import { useBooks } from './hooks/useBooks';
 import { useSavedWords } from './hooks/useSavedWords';
 import { useQuotes } from './hooks/useQuotes';
+import { useTaskMeta } from './hooks/useTaskMeta';
+import { useTaskTimer } from './hooks/useTaskTimer';
+import { FloatingTimer, TaskTimerModal } from './components/TaskTimer';
 import { useActiveCharacter } from './hooks/useActiveCharacter';
 import { useBackground } from './hooks/useBackground';
 import { getBackground } from './lib/backgrounds';
@@ -31,6 +34,19 @@ export default function App() {
   const books = useBooks();
   const savedWords = useSavedWords();
   const quotes = useQuotes();
+  // Task categories & tags; their renames/deletions are mirrored onto loaded tasks.
+  const taskMeta = useTaskMeta({
+    onTagRenamed: tasks.renameTagLocally,
+    onTagDeleted: tasks.removeTagLocally,
+    onCategoryDeleted: tasks.clearCategoryLocally,
+  });
+  // One task time tracker for the whole app (floating pill on every page).
+  const taskTimer = useTaskTimer(tasks.logTime);
+  const [timerTaskId, setTimerTaskId] = useState(null);
+  const timerTask = tasks.tasks.find((t) => t.id === timerTaskId);
+  const runningTask = taskTimer.timer
+    ? tasks.tasks.find((t) => t.id === taskTimer.timer.taskId) || { id: taskTimer.timer.taskId, title: 'Задача' }
+    : null;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [activeCharacterId, setActiveCharacterId] = useActiveCharacter();
@@ -114,6 +130,9 @@ export default function App() {
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
                 activeCharacterId={activeCharacterId}
+                taskMeta={taskMeta}
+                timer={taskTimer.timer}
+                onOpenTimer={setTimerTaskId}
               />
             }
           />
@@ -126,6 +145,9 @@ export default function App() {
                 selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
                 activeCharacterId={activeCharacterId}
+                taskMeta={taskMeta}
+                timer={taskTimer.timer}
+                onOpenTimer={setTimerTaskId}
               />
             }
           />
@@ -175,7 +197,17 @@ export default function App() {
         onCreate={tasks.addTask}
         onUpdate={tasks.updateTask}
         onDelete={tasks.deleteTask}
+        meta={taskMeta}
       />
+      {timerTask && (
+        <TaskTimerModal
+          task={timerTask}
+          timerApi={taskTimer}
+          onClose={() => setTimerTaskId(null)}
+          onSetTarget={(id, minutes) => tasks.patchTask(id, { time_target_minutes: minutes })}
+        />
+      )}
+      <FloatingTimer task={runningTask} timerApi={taskTimer} onOpen={() => runningTask && setTimerTaskId(runningTask.id)} />
     </div>
   );
 }

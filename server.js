@@ -328,7 +328,15 @@ const TASK_COLUMNS = [
   'kind', 'title', 'due_at', 'due_has_time', 'recurrence_note', 'repeat_type', 'repeat_days',
   'times_per_day', 'repeat_end_type', 'repeat_end_date', 'repeat_occurrences_left',
   'reminder_count', 'snooze_count', 'completed', 'completed_at',
+  // Task details (ported from Sanct): description, priority, category, tags,
+  // a free-form checklist, and time tracking.
+  'description', 'priority', 'category_id', 'tags', 'checklist',
+  'time_target_minutes', 'time_spent_seconds',
 ];
+// jsonb columns get their value serialized: node-pg would otherwise turn a
+// JS array (e.g. the checklist) into a Postgres array literal.
+const JSONB_COLUMNS = new Set(['checklist']);
+const dbValue = (col, v) => (JSONB_COLUMNS.has(col) && v != null ? JSON.stringify(v) : v);
 const SUBTASK_COLUMNS = ['task_id', 'label', 'done', 'position'];
 const HABIT_COLUMNS = ['title', 'icon', 'color', 'target_days', 'times_per_day', 'archived'];
 
@@ -337,7 +345,7 @@ function buildInsert(table, allowedCols, body) {
   if (cols.length === 0) throw new Error('No valid fields to insert');
   const colList = cols.map((c) => `"${c}"`).join(', ');
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
-  const values = cols.map((c) => body[c]);
+  const values = cols.map((c) => dbValue(c, body[c]));
   return { text: `insert into forge.${table} (${colList}) values (${placeholders}) returning *`, values };
 }
 
@@ -345,7 +353,7 @@ function buildPatch(table, allowedCols, id, body) {
   const cols = Object.keys(body).filter((k) => allowedCols.includes(k));
   if (cols.length === 0) throw new Error('No valid fields to update');
   const setClause = cols.map((c, i) => `"${c}" = $${i + 2}`).join(', ');
-  const values = cols.map((c) => body[c]);
+  const values = cols.map((c) => dbValue(c, body[c]));
   return { text: `update forge.${table} set ${setClause} where id = $1 returning *`, values: [id, ...values] };
 }
 
@@ -390,6 +398,20 @@ app.post('/api/tasks', async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
+// Adds a finished timer session to a task's tracked time (an increment, so
+// sessions logged from different devices never overwrite each other).
+app.post('/api/tasks/:id/time', async (req, res) => {
+  try {
+    const seconds = Math.max(0, Math.min(24 * 3600, parseInt(req.body?.seconds, 10) || 0));
+    const { rows } = await pool.query(
+      'update forge.tasks set time_spent_seconds = time_spent_seconds + $2 where id = $1 returning *',
+      [req.params.id, seconds]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
 app.patch('/api/tasks/:id', async (req, res) => {
   try {
     const { text, values } = buildPatch('tasks', TASK_COLUMNS, req.params.id, req.body);
@@ -410,6 +432,95 @@ app.post('/api/tasks/delete-many', async (req, res) => {
   try {
     const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
     if (ids.length) await pool.query('delete from forge.tasks where id = any($1::uuid[])', [ids]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- Task categories & tags ---
+// Categories carry an emoji icon and a colour; a task points at one by id.
+// Tags are stored on tasks by name (tasks.tags text[]), so renaming or
+// deleting a tag rewrites those arrays too.
+const CATEGORY_COLUMNS = ['name', 'icon', 'color', 'position'];
+const TAG_COLUMNS = ['name', 'color'];
+
+app.get('/api/task-categories', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.task_categories order by position, created_at');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/task-categories', async (req, res) => {
+  try {
+    const name = (req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Нужно название категории' });
+    const { rows } = await pool.query(
+      `insert into forge.task_categories (name, icon, color, position)
+       values ($1, $2, $3, (select coalesce(max(position), -1) + 1 from forge.task_categories)) returning *`,
+      [name, req.body.icon || '📦', req.body.color || '#6C5CE7']
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/task-categories/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('task_categories', CATEGORY_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Категория не найдена' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// Deleting a category leaves its tasks uncategorised rather than refusing.
+app.delete('/api/task-categories/:id', async (req, res) => {
+  try {
+    await pool.query('update forge.tasks set category_id = null where category_id = $1', [req.params.id]);
+    await pool.query('delete from forge.task_categories where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/task-tags', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.task_tags order by created_at');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/task-tags', async (req, res) => {
+  try {
+    const name = (req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Нужно название тега' });
+    const { rows } = await pool.query(
+      `insert into forge.task_tags (name, color) values ($1, $2)
+       on conflict (name) do update set color = excluded.color returning *`,
+      [name, req.body.color || '#6C5CE7']
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/task-tags/:id', async (req, res) => {
+  try {
+    const before = await pool.query('select name from forge.task_tags where id = $1', [req.params.id]);
+    if (!before.rows.length) return res.status(404).json({ error: 'Тег не найден' });
+    const body = { ...req.body };
+    if (typeof body.name === 'string') body.name = body.name.trim();
+    const { text, values } = buildPatch('task_tags', TAG_COLUMNS, req.params.id, body);
+    const { rows } = await pool.query(text, values);
+    const oldName = before.rows[0].name;
+    if (rows[0].name !== oldName) {
+      await pool.query('update forge.tasks set tags = array_replace(tags, $1, $2) where $1 = any(tags)', [oldName, rows[0].name]);
+    }
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/task-tags/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('delete from forge.task_tags where id = $1 returning name', [req.params.id]);
+    if (rows.length) await pool.query('update forge.tasks set tags = array_remove(tags, $1) where $1 = any(tags)', [rows[0].name]);
     res.status(204).end();
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1011,6 +1122,47 @@ app.get('*', (_req, res) => res.sendFile(join(DIST, 'index.html')));
 // Additive, idempotent schema upgrades for columns added after the initial
 // db/schema.sql was applied — keeps deploys self-sufficient.
 async function migrate() {
+  // Task details ported from Sanct.
+  await pool.query(`
+    alter table forge.tasks
+      add column if not exists description text,
+      add column if not exists priority text not null default 'none'
+        check (priority in ('high', 'medium', 'low', 'none')),
+      add column if not exists category_id uuid,
+      add column if not exists tags text[] not null default '{}',
+      add column if not exists checklist jsonb not null default '[]',
+      add column if not exists time_target_minutes integer,
+      add column if not exists time_spent_seconds integer not null default 0
+  `);
+  await pool.query(`
+    create table if not exists forge.task_categories (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      icon text not null default '📦',
+      color text not null default '#6C5CE7',
+      position integer not null default 0,
+      created_at timestamptz not null default now()
+    )
+  `);
+  // The standard set from Sanct, only into an empty table — categories the
+  // user deleted must not come back on the next restart.
+  await pool.query(`
+    insert into forge.task_categories (name, icon, color, position)
+    select * from (values
+      ('Личное', '❤️', '#FF8E7D', 0), ('Работа', '💼', '#6C5CE7', 1),
+      ('Образование', '📚', '#4A90D9', 2), ('Здоровье', '🏃', '#00B894', 3),
+      ('Спорт', '⚽', '#FF8C5A', 4), ('Хобби', '🎨', '#9B8BC4', 5)
+    ) as d(name, icon, color, position)
+    where not exists (select 1 from forge.task_categories)
+  `);
+  await pool.query(`
+    create table if not exists forge.task_tags (
+      id uuid primary key default gen_random_uuid(),
+      name text not null unique,
+      color text not null default '#6C5CE7',
+      created_at timestamptz not null default now()
+    )
+  `);
   await pool.query('alter table forge.books add column if not exists shelf_slot integer');
   await pool.query('alter table forge.books add column if not exists plain_only boolean not null default false');
   await pool.query(`

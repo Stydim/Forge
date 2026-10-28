@@ -65,7 +65,18 @@ export const listCompletedTaskStats = () => request('/tasks/completed-stats');
 export const createTask = (fields) => request('/tasks', { method: 'POST', body: json(fields) });
 export const updateTask = (id, fields) => request(`/tasks/${id}`, { method: 'PATCH', body: json(fields) });
 export const deleteTask = (id) => request(`/tasks/${id}`, { method: 'DELETE' });
+export const logTaskTime = (id, seconds) => request(`/tasks/${id}/time`, { method: 'POST', body: json({ seconds }) });
 export const deleteTasks = (ids) => request('/tasks/delete-many', { method: 'POST', body: json({ ids }) });
+
+// Task categories & tags
+export const listTaskCategories = () => request('/task-categories');
+export const createTaskCategory = (fields) => request('/task-categories', { method: 'POST', body: json(fields) });
+export const updateTaskCategory = (id, fields) => request(`/task-categories/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteTaskCategory = (id) => request(`/task-categories/${id}`, { method: 'DELETE' });
+export const listTaskTags = () => request('/task-tags');
+export const createTaskTag = (fields) => request('/task-tags', { method: 'POST', body: json(fields) });
+export const updateTaskTag = (id, fields) => request(`/task-tags/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteTaskTag = (id) => request(`/task-tags/${id}`, { method: 'DELETE' });
 
 // Subtasks (also used for goal steps)
 export const listSubtasksByTask = (taskId) => request(`/subtasks?task_id=${taskId}`);

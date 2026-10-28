@@ -58,7 +58,7 @@ function deriveDisplay(task) {
   };
 }
 
-export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask, activeCharacterId }) {
+export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask, activeCharacterId, taskMeta, timer, onOpenTimer }) {
   const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const character = getCharacter(activeCharacterId);
@@ -66,6 +66,16 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   const [draft, setDraft] = useState('');
 
   const displayTasks = useMemo(() => tasks.map(deriveDisplay), [tasks]);
+  // Category filter for the list (ported from Sanct): 'all', or a category id.
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const categoryCounts = useMemo(() => {
+    const counts = new Map();
+    for (const t of displayTasks) if (t.category_id) counts.set(t.category_id, (counts.get(t.category_id) || 0) + 1);
+    return counts;
+  }, [displayTasks]);
+  const usedCategories = (taskMeta?.categories || []).filter((c) => categoryCounts.has(c.id));
+  const activeFilter = categoryFilter !== 'all' && categoryCounts.has(categoryFilter) ? categoryFilter : 'all';
+  const listTasks = activeFilter === 'all' ? displayTasks : displayTasks.filter((t) => t.category_id === activeFilter);
   const overdueCount = displayTasks.filter((t) => t.display === 'urgent').length;
 
   const heading = displayTasks.length === 0
@@ -262,8 +272,27 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
           </div>
         )}
 
+        {usedCategories.length > 0 && (
+          <div className="task-filter-row" role="group" aria-label="Фильтр по категориям">
+            <button type="button" className={`task-filter-chip${activeFilter === 'all' ? ' active' : ''}`} onClick={() => setCategoryFilter('all')}>
+              Все <span className="task-filter-count">{displayTasks.length}</span>
+            </button>
+            {usedCategories.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`task-filter-chip${activeFilter === c.id ? ' active' : ''}`}
+                style={activeFilter === c.id ? { background: c.color, borderColor: c.color, color: '#fff' } : undefined}
+                onClick={() => setCategoryFilter(activeFilter === c.id ? 'all' : c.id)}
+              >
+                {c.icon} {c.name} <span className="task-filter-count">{categoryCounts.get(c.id)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="task-list">
-          {displayTasks.map((task) => {
+          {listTasks.map((task) => {
             const selected = task.id === activeTask?.id;
             if (task.display === 'urgent') {
               return (
@@ -276,6 +305,9 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                   onEdit={onEditTask}
                   onSelect={handleSelect}
                   selected={selected}
+                  meta={taskMeta}
+                  timer={timer}
+                  onOpenTimer={onOpenTimer}
                 />
               );
             }
@@ -287,6 +319,9 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                   onSubtaskClick={toggleSubtask}
                   onSelect={handleSelect}
                   selected={selected}
+                  meta={taskMeta}
+                  timer={timer}
+                  onOpenTimer={onOpenTimer}
                 />
               );
             }
@@ -300,6 +335,9 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                 onEdit={onEditTask}
                 onSelect={handleSelect}
                 selected={selected}
+                meta={taskMeta}
+                timer={timer}
+                onOpenTimer={onOpenTimer}
               />
             );
           })}

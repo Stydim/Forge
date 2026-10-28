@@ -52,6 +52,20 @@ async function reconcileSubtaskRows(taskId, currentSubtasks, newCount) {
   return toKeep;
 }
 
+// Task details from the form (description, priority, category, tags,
+// checklist, time goal) as DB columns. Undefined fields are left out so an
+// update only touches what the form actually carries.
+function detailColumns({ description, priority, categoryId, tags, checklist, timeTargetMinutes } = {}) {
+  const cols = {};
+  if (description !== undefined) cols.description = description?.trim() || null;
+  if (priority !== undefined) cols.priority = priority || 'none';
+  if (categoryId !== undefined) cols.category_id = categoryId || null;
+  if (tags !== undefined) cols.tags = tags || [];
+  if (checklist !== undefined) cols.checklist = (checklist || []).filter((c) => c.title?.trim());
+  if (timeTargetMinutes !== undefined) cols.time_target_minutes = timeTargetMinutes || null;
+  return cols;
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +143,12 @@ export function useTasks() {
           repeat_end_type: task.repeat_end_type,
           repeat_end_date: task.repeat_end_date,
           repeat_occurrences_left: task.repeat_end_type === 'count' ? occurrencesLeft : null,
+          description: task.description,
+          priority: task.priority,
+          category_id: task.category_id,
+          tags: task.tags,
+          checklist: (task.checklist || []).map((c) => ({ ...c, done: false })),
+          time_target_minutes: task.time_target_minutes,
         });
       } catch (err) {
         setError(err.message); return;
@@ -209,12 +229,14 @@ export function useTasks() {
     repeatEndType = 'never',
     repeatCount = null,
     repeatEndDate = null,
+    ...details
   }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
     let data;
     try {
       data = await api.createTask({
+        ...detailColumns(details),
         kind: 'task',
         title: trimmed,
         due_at,
@@ -246,6 +268,7 @@ export function useTasks() {
     repeatEndType = 'never',
     repeatCount = null,
     repeatEndDate = null,
+    ...details
   }) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
@@ -253,6 +276,7 @@ export function useTasks() {
     if (!trimmed) return;
 
     const dbFields = {
+      ...detailColumns(details),
       title: trimmed,
       due_at,
       due_has_time: dueHasTime,
@@ -274,6 +298,38 @@ export function useTasks() {
     const subtasks = await reconcileSubtaskRows(id, task.subtasks, timesPerDay);
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...dbFields, subtasks } : t)));
   }, [tasks, load]);
+
+  // Patches a few columns of one task (e.g. a checklist item ticked on the
+  // card, time logged by the timer) — optimistic, reverted by a reload on error.
+  const patchTask = useCallback(async (id, fields) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...fields } : t)));
+    try {
+      await api.updateTask(id, fields);
+    } catch (err) {
+      setError(err.message); load();
+    }
+  }, [load]);
+
+  // Adds a finished timer session to the task (server-side increment).
+  const logTime = useCallback(async (id, seconds) => {
+    try {
+      const row = await api.logTaskTime(id, seconds);
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, time_spent_seconds: row.time_spent_seconds } : t)));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, []);
+
+  const renameTagLocally = useCallback((oldName, newName) => {
+    setTasks((prev) => prev.map((t) => (t.tags?.includes(oldName)
+      ? { ...t, tags: t.tags.map((n) => (n === oldName ? newName : n)) } : t)));
+  }, []);
+  const removeTagLocally = useCallback((name) => {
+    setTasks((prev) => prev.map((t) => (t.tags?.includes(name) ? { ...t, tags: t.tags.filter((n) => n !== name) } : t)));
+  }, []);
+  const clearCategoryLocally = useCallback((id) => {
+    setTasks((prev) => prev.map((t) => (t.category_id === id ? { ...t, category_id: null } : t)));
+  }, []);
 
   const addGoal = useCallback(async ({ title, due_at = null, steps = [] }) => {
     const trimmed = title.trim();
@@ -356,5 +412,6 @@ export function useTasks() {
   return {
     tasks, loading, error, load, completeTask, snoozeTask, toggleSubtask,
     addTask, updateTask, addGoal, updateGoal, deleteTask,
+    patchTask, logTime, renameTagLocally, removeTagLocally, clearCategoryLocally,
   };
 }

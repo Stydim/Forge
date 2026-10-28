@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Timer, Trash2 } from 'lucide-react';
+import { CategoryPicker, ChecklistEditor, EmojiRow, PriorityPicker, TagPicker } from './TaskDetailsFields';
+import { formatDurationShort } from '../lib/taskDetails';
 import { buildRecurrenceNote } from '../lib/recurrence';
 import { resolveDueAtWithoutTime } from '../lib/dueDate';
 
@@ -44,8 +46,18 @@ const END_OPTIONS = [
   { value: 'date', label: 'До даты' },
 ];
 
-export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDelete, editingTask }) {
+export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDelete, editingTask, meta }) {
   const [title, setTitle] = useState('');
+  // Details ported from Sanct.
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('none');
+  const [categoryId, setCategoryId] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [checklist, setChecklist] = useState([]);
+  const [timeTarget, setTimeTarget] = useState('');
+  const titleRef = useRef(null);
+  const descRef = useRef(null);
+  const lastFieldRef = useRef('title'); // where the emoji row inserts
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('');
   const [hasTime, setHasTime] = useState(true);
@@ -71,6 +83,12 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDel
       setEndType(editingTask.repeat_end_type || 'never');
       setEndCount(editingTask.repeat_occurrences_left || 5);
       setEndDate(toDateValue(editingTask.repeat_end_date));
+      setDescription(editingTask.description || '');
+      setPriority(editingTask.priority || 'none');
+      setCategoryId(editingTask.category_id || null);
+      setTags(editingTask.tags || []);
+      setChecklist(editingTask.checklist || []);
+      setTimeTarget(editingTask.time_target_minutes ? String(editingTask.time_target_minutes) : '');
     } else {
       setTitle('');
       setDueDate('');
@@ -82,10 +100,33 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDel
       setEndType('never');
       setEndCount(5);
       setEndDate('');
+      setDescription('');
+      setPriority('none');
+      setCategoryId(null);
+      setTags([]);
+      setChecklist([]);
+      setTimeTarget('');
     }
+    lastFieldRef.current = 'title';
   }, [open, editingTask]);
 
   if (!open) return null;
+
+  // Inserts an emoji at the caret of the last-focused text field.
+  const insertEmoji = (emoji) => {
+    const isDesc = lastFieldRef.current === 'description';
+    const el = isDesc ? descRef.current : titleRef.current;
+    const value = isDesc ? description : title;
+    const set = isDesc ? setDescription : setTitle;
+    const start = el && document.activeElement === el ? el.selectionStart : value.length;
+    const end = el && document.activeElement === el ? el.selectionEnd : value.length;
+    set(value.slice(0, start) + emoji + value.slice(end));
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
+  };
 
   const toggleDay = (value) => {
     setSelectedDays((prev) => (
@@ -129,6 +170,12 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDel
       repeatEndType,
       repeatCount,
       repeatEndDate,
+      description,
+      priority,
+      categoryId,
+      tags,
+      checklist,
+      timeTargetMinutes: Math.max(0, parseInt(timeTarget, 10) || 0),
     };
 
     if (editingTask) onUpdate(editingTask.id, payload);
@@ -155,13 +202,42 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDel
           <label className="task-modal-label" htmlFor="task-modal-title-input">Текст задачи</label>
           <textarea
             id="task-modal-title-input"
-            className="task-modal-textarea"
+            ref={titleRef}
+            className="task-modal-textarea td-with-emoji"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onFocus={() => { lastFieldRef.current = 'title'; }}
             placeholder="Например: Полить цветы"
             rows={2}
             autoFocus
           />
+          <EmojiRow onPick={insertEmoji} />
+
+          <label className="task-modal-label" htmlFor="task-modal-desc-input">Описание</label>
+          <textarea
+            id="task-modal-desc-input"
+            ref={descRef}
+            className="task-modal-textarea td-with-emoji"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onFocus={() => { lastFieldRef.current = 'description'; }}
+            placeholder="Детали, ссылки, заметки — по желанию"
+            rows={2}
+          />
+          <EmojiRow onPick={insertEmoji} />
+
+          <div className="task-modal-label">Приоритет</div>
+          <PriorityPicker value={priority} onChange={setPriority} />
+
+          {meta && (
+            <>
+              <div className="task-modal-label">Категория</div>
+              <CategoryPicker categories={meta.categories} value={categoryId} onChange={setCategoryId} meta={meta} />
+
+              <div className="task-modal-label">Теги</div>
+              <TagPicker tags={meta.tags} value={tags} onChange={setTags} meta={meta} />
+            </>
+          )}
 
           <label className="task-modal-label" htmlFor="task-modal-due-input">Срок</label>
           <input
@@ -292,6 +368,29 @@ export default function TaskFormModal({ open, onClose, onCreate, onUpdate, onDel
             >
               +
             </button>
+          </div>
+
+          <div className="task-modal-label">Чек-лист</div>
+          <ChecklistEditor items={checklist} onChange={setChecklist} />
+
+          <div className="task-modal-label">Время на задачу</div>
+          <div className="td-time-row">
+            <Timer size={16} />
+            <span>Цель</span>
+            <input
+              className="task-modal-input td-time-input"
+              type="number"
+              min="0"
+              max="1440"
+              inputMode="numeric"
+              value={timeTarget}
+              onChange={(e) => setTimeTarget(e.target.value)}
+              placeholder="—"
+            />
+            <span>мин</span>
+            {editingTask?.time_spent_seconds > 0 && (
+              <span className="td-time-spent">потрачено {formatDurationShort(editingTask.time_spent_seconds)}</span>
+            )}
           </div>
 
           {editingTask && confirmingDelete ? (

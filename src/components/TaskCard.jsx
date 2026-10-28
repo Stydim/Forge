@@ -1,6 +1,71 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pencil } from 'lucide-react';
+import { ListChecks, Pencil, Timer } from 'lucide-react';
 import { pluralRu } from '../lib/format';
+import { formatDurationShort, priorityOf } from '../lib/taskDetails';
+
+// Title with the priority dot in front (none = no dot).
+function CardTitle({ task }) {
+  const prio = task.priority && task.priority !== 'none' ? priorityOf(task.priority) : null;
+  return (
+    <div className="task-card-title">
+      {prio && <span className="task-prio-dot" style={{ background: prio.color }} title={`Приоритет: ${prio.label.toLowerCase()}`} />}
+      {task.title}
+    </div>
+  );
+}
+
+// The task's details under its meta line: description, category, tags,
+// checklist progress and tracked time.
+function CardDetails({ task, meta }) {
+  const category = task.category_id && meta?.categories.find((c) => c.id === task.category_id);
+  const tags = (task.tags || []).map((name) => meta?.tags.find((t) => t.name === name) || { name, color: '#A39C88' });
+  const checklist = task.checklist || [];
+  const done = checklist.filter((c) => c.done).length;
+  const spent = task.time_spent_seconds || 0;
+  const target = task.time_target_minutes || 0;
+  if (!task.description && !category && !tags.length && !checklist.length && !spent && !target) return null;
+  return (
+    <>
+      {task.description && <div className="task-card-desc">{task.description}</div>}
+      <div className="task-card-details">
+        {category && (
+          <span className="task-detail-cat" style={{ color: category.color, borderColor: category.color }}>
+            {category.icon} {category.name}
+          </span>
+        )}
+        {tags.map((t) => (
+          <span key={t.name} className="task-detail-tag" style={{ background: t.color }}>{t.name}</span>
+        ))}
+        {checklist.length > 0 && (
+          <span className={`task-detail-stat${done === checklist.length ? ' done' : ''}`} title="Чек-лист">
+            <ListChecks size={13} /> {done}/{checklist.length}
+          </span>
+        )}
+        {(spent > 0 || target > 0) && (
+          <span className="task-detail-stat" title="Затрачено времени">
+            <Timer size={13} /> {formatDurationShort(spent)}{target > 0 && ` / ${formatDurationShort(target * 60)}`}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function TimerButton({ task, timer, onOpenTimer }) {
+  if (!onOpenTimer) return null;
+  const mine = timer?.taskId === task.id;
+  const state = mine ? (timer.startedAt ? ' running' : ' paused') : '';
+  return (
+    <button
+      className={`task-card-icon-btn task-timer-btn${state}`}
+      onClick={() => onOpenTimer(task.id)}
+      aria-label="Трекер времени"
+      title={mine ? (timer.startedAt ? 'Таймер идёт' : 'Таймер на паузе') : 'Трекер времени'}
+    >
+      <Timer size={16} />
+    </button>
+  );
+}
 
 function SubtaskChips({ subtasks, onSubtaskClick }) {
   if (!subtasks || subtasks.length === 0) return null;
@@ -83,19 +148,21 @@ function EditButton({ task, onEdit }) {
   );
 }
 
-export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected }) {
+export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer }) {
   return (
     <div className={`task-card urgent${selected ? ' selected' : ''}`} data-task-id={task.id} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
-        <div>
-          <div className="task-card-title">{task.title}</div>
+        <div className="task-card-main">
+          <CardTitle task={task} />
           <div className="task-card-meta">{task.meta}</div>
+          <CardDetails task={task} meta={meta} />
         </div>
         <div className="task-card-actions">
           <button className="btn-pill btn-pill-solid-red" onClick={() => onDone?.(task.id)}>
             Готово
           </button>
           <SnoozeButton task={task} onSnooze={onSnooze} className="btn-pill btn-pill-outline-red" label="Отложить" />
+          <TimerButton task={task} timer={timer} onOpenTimer={onOpenTimer} />
           <EditButton task={task} onEdit={onEdit} />
         </div>
       </div>
@@ -104,19 +171,21 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit,
   );
 }
 
-export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected }) {
+export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer }) {
   return (
     <div className={`task-card${selected ? ' selected' : ''}`} data-task-id={task.id} onClick={() => onSelect?.(task.id)}>
       <div className="task-card-row">
-        <div>
-          <div className="task-card-title">{task.title}</div>
+        <div className="task-card-main">
+          <CardTitle task={task} />
           <div className="task-card-meta">{task.meta}</div>
+          <CardDetails task={task} meta={meta} />
         </div>
         <div className="task-card-actions">
           <button className="btn-pill btn-pill-outline-teal" onClick={() => onDone?.(task.id)}>
             Готово
           </button>
           <SnoozeButton task={task} onSnooze={onSnooze} className="btn-pill btn-pill-outline" label="Отложить" />
+          <TimerButton task={task} timer={timer} onOpenTimer={onOpenTimer} />
           <EditButton task={task} onEdit={onEdit} />
         </div>
       </div>

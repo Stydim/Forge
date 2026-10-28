@@ -32,7 +32,15 @@ create table forge.tasks (
   snooze_count integer not null default 0,
   completed boolean not null default false,
   completed_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Task details (ported from Sanct).
+  description text,
+  priority text not null default 'none' check (priority in ('high', 'medium', 'low', 'none')),
+  category_id uuid,               -- forge.task_categories.id; null = no category
+  tags text[] not null default '{}', -- forge.task_tags names
+  checklist jsonb not null default '[]', -- [{ id, title, done }]
+  time_target_minutes integer,
+  time_spent_seconds integer not null default 0
 );
 
 create table forge.subtasks (
@@ -195,4 +203,22 @@ create table forge.dialogue_cache (
   lines jsonb not null,
   created_at timestamptz not null default now(),
   primary key (character_id, task_id)
+);
+
+-- Task categories (emoji icon + colour) and tags, used by tasks.category_id
+-- and tasks.tags. Six standard categories are seeded into an empty table.
+create table forge.task_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  icon text not null default '📦',
+  color text not null default '#6C5CE7',
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table forge.task_tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  color text not null default '#6C5CE7',
+  created_at timestamptz not null default now()
 );
