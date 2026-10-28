@@ -51,6 +51,13 @@ function CardDetails({ task, meta }) {
   );
 }
 
+// Card click: selects the task (character panel) and, unless the click was
+// on one of the card's own controls, opens its details.
+const cardClick = (task, onSelect, onOpen) => (e) => {
+  onSelect?.(task.id);
+  if (onOpen && !e.target.closest('button, input, a, .snooze-menu-wrap')) onOpen(task.id);
+};
+
 function TimerButton({ task, timer, onOpenTimer }) {
   if (!onOpenTimer) return null;
   const mine = timer?.taskId === task.id;
@@ -148,9 +155,9 @@ function EditButton({ task, onEdit }) {
   );
 }
 
-export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer }) {
+export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer, onOpen }) {
   return (
-    <div className={`task-card urgent${selected ? ' selected' : ''}`} data-task-id={task.id} onClick={() => onSelect?.(task.id)}>
+    <div className={`task-card urgent${selected ? ' selected' : ''}${onOpen ? ' openable' : ''}`} data-task-id={task.id} onClick={cardClick(task, onSelect, onOpen)}>
       <div className="task-card-row">
         <div className="task-card-main">
           <CardTitle task={task} />
@@ -171,9 +178,9 @@ export function UrgentTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit,
   );
 }
 
-export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer }) {
+export function NormalTaskCard({ task, onDone, onSnooze, onSubtaskClick, onEdit, onSelect, selected, meta, timer, onOpenTimer, onOpen }) {
   return (
-    <div className={`task-card${selected ? ' selected' : ''}`} data-task-id={task.id} onClick={() => onSelect?.(task.id)}>
+    <div className={`task-card${selected ? ' selected' : ''}${onOpen ? ' openable' : ''}`} data-task-id={task.id} onClick={cardClick(task, onSelect, onOpen)}>
       <div className="task-card-row">
         <div className="task-card-main">
           <CardTitle task={task} />

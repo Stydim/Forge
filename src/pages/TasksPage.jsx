@@ -3,6 +3,7 @@ import { DAY_MS } from '../lib/streaks';
 import { UrgentTaskCard, NormalTaskCard, ProgressTaskCard } from '../components/TaskCard';
 import GnomePanel from '../components/GnomePanel';
 import StatsRow from '../components/StatsRow';
+import TaskDetailsModal from '../components/TaskDetailsModal';
 import { useStats } from '../hooks/useStats';
 import { getCharacter, getCharacterState } from '../lib/characters';
 import { formatOverdue, formatUpcoming, formatDaysLeft, describeSnoozePattern, pluralRu } from '../lib/format';
@@ -59,7 +60,8 @@ function deriveDisplay(task) {
 }
 
 export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskId, onSelectTask, activeCharacterId, taskMeta, timer, onOpenTimer }) {
-  const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask } = tasksState;
+  const { tasks, loading, error, completeTask, snoozeTask, toggleSubtask, addTask, patchTask } = tasksState;
+  const [detailsId, setDetailsId] = useState(null);
   const { stats, loading: statsLoading, reload: reloadStats } = useStats();
   const character = getCharacter(activeCharacterId);
   const [lang, setLang] = useState('ru');
@@ -75,7 +77,14 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   }, [displayTasks]);
   const usedCategories = (taskMeta?.categories || []).filter((c) => categoryCounts.has(c.id));
   const activeFilter = categoryFilter !== 'all' && categoryCounts.has(categoryFilter) ? categoryFilter : 'all';
-  const listTasks = activeFilter === 'all' ? displayTasks : displayTasks.filter((t) => t.category_id === activeFilter);
+  // "Сегодня": tasks due by the end of today — overdue ones included, as in
+  // Sanct (a repeating task's due_at is always its next occurrence).
+  const [todayOnly, setTodayOnly] = useState(false);
+  const tomorrowStart = new Date();
+  tomorrowStart.setHours(24, 0, 0, 0);
+  const isToday = (t) => !!t.due_at && new Date(t.due_at) < tomorrowStart;
+  const todayCount = displayTasks.filter(isToday).length;
+  const listTasks = displayTasks.filter((t) => (activeFilter === 'all' || t.category_id === activeFilter) && (!todayOnly || isToday(t)));
   const overdueCount = displayTasks.filter((t) => t.display === 'urgent').length;
 
   const heading = displayTasks.length === 0
@@ -196,6 +205,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   const handleDone = async (id) => { await completeTask(id); reloadStats(); };
   const handleSnooze = async (id, hours) => { onSelectTask(id); await snoozeTask(id, hours); reloadStats(); };
   const handleSelect = (id) => onSelectTask(id);
+  const detailsTask = detailsId ? displayTasks.find((t) => t.id === detailsId) : null;
+
   // From the character panel: scroll the dialogue's task into view and pulse it.
   const showTaskCard = (id) => {
     const card = document.querySelector(`[data-task-id="${id}"]`);
@@ -272,11 +283,21 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
           </div>
         )}
 
-        {usedCategories.length > 0 && (
-          <div className="task-filter-row" role="group" aria-label="Фильтр по категориям">
-            <button type="button" className={`task-filter-chip${activeFilter === 'all' ? ' active' : ''}`} onClick={() => setCategoryFilter('all')}>
+        {displayTasks.length > 0 && (
+          <div className="task-filter-row" role="group" aria-label="Фильтр задач">
+            <button type="button" className={`task-filter-chip${activeFilter === 'all' && !todayOnly ? ' active' : ''}`} onClick={() => { setCategoryFilter('all'); setTodayOnly(false); }}>
               Все <span className="task-filter-count">{displayTasks.length}</span>
             </button>
+            <button
+              type="button"
+              className={`task-filter-chip task-filter-today${todayOnly ? ' active' : ''}`}
+              onClick={() => setTodayOnly((v) => !v)}
+              aria-pressed={todayOnly}
+              title="Задачи со сроком сегодня, включая просроченные"
+            >
+              Сегодня <span className="task-filter-count">{todayCount}</span>
+            </button>
+            {usedCategories.length > 0 && <span className="task-filter-sep" aria-hidden="true" />}
             {usedCategories.map((c) => (
               <button
                 key={c.id}
@@ -288,6 +309,12 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                 {c.icon} {c.name} <span className="task-filter-count">{categoryCounts.get(c.id)}</span>
               </button>
             ))}
+          </div>
+        )}
+
+        {listTasks.length === 0 && displayTasks.length > 0 && (
+          <div className="task-filter-empty">
+            {todayOnly ? 'На сегодня задач нет.' : 'В этой категории задач нет.'}
           </div>
         )}
 
@@ -308,6 +335,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                   meta={taskMeta}
                   timer={timer}
                   onOpenTimer={onOpenTimer}
+                  onOpen={setDetailsId}
                 />
               );
             }
@@ -338,6 +366,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
                 meta={taskMeta}
                 timer={timer}
                 onOpenTimer={onOpenTimer}
+                onOpen={setDetailsId}
               />
             );
           })}
@@ -358,6 +387,19 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
 
         <StatsRow stats={stats} loading={statsLoading} />
       </div>
+
+      {detailsTask && (
+        <TaskDetailsModal
+          task={detailsTask}
+          meta={taskMeta}
+          timer={timer}
+          onClose={() => setDetailsId(null)}
+          onChecklistChange={(id, checklist) => patchTask(id, { checklist })}
+          onEdit={(t) => { setDetailsId(null); onEditTask(t); }}
+          onOpenTimer={(id) => { setDetailsId(null); onOpenTimer(id); }}
+          onDone={(id) => { setDetailsId(null); handleDone(id); }}
+        />
+      )}
 
       <GnomePanel
         character={character}

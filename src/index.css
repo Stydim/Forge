@@ -2193,3 +2193,39 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 @media (max-width: 768px) {
   .floating-timer { right: 16px; left: 16px; bottom: 16px; max-width: none; }
 }
+
+/* Task details popup (click on a card) */
+.task-card.openable { cursor: pointer; }
+.details-modal { max-width: 440px; }
+.details-title { display: flex; align-items: baseline; gap: 0; padding-right: 36px; margin-bottom: 4px; }
+.details-title .task-prio-dot { flex: 0 0 auto; }
+.details-meta { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 12px; }
+.details-chips { margin: 0 0 18px; }
+.details-notes {
+  white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; font-size: 0.9375rem;
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 12px 14px; margin-bottom: 20px; max-height: 240px; overflow-y: auto;
+}
+.details-empty {
+  display: block; width: 100%; text-align: left; margin-bottom: 20px; padding: 12px 14px;
+  border: 1.5px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-tertiary); font-size: 0.875rem;
+}
+.details-empty:hover { border-color: var(--accent-teal); color: var(--accent-teal-dark); }
+.details-count { color: var(--text-tertiary); font-weight: 600; }
+.details-progress { margin: 0 0 10px; }
+.details-checklist { display: flex; flex-direction: column; gap: 2px; margin-bottom: 20px; }
+.details-check {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 8px; border-radius: var(--radius-sm);
+  text-align: left; font-size: 0.9375rem; color: var(--text-primary);
+}
+.details-check:hover { background: var(--bg-chip); }
+.details-check.done .td-check-box { background: var(--accent-teal); border-color: var(--accent-teal); }
+.details-check.done .details-check-title { text-decoration: line-through; color: var(--text-tertiary); }
+.details-time { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; margin-bottom: 8px; }
+.details-time-live { color: var(--accent-teal-dark); }
+.details-actions .task-modal-btn-small { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Filter row extras */
+.task-filter-sep { width: 1px; align-self: stretch; background: var(--border-color); margin: 2px 2px; }
+.task-filter-today.active { background: var(--accent-teal); border-color: var(--accent-teal); color: var(--text-inverse); }
+.task-filter-empty { color: var(--text-secondary); font-size: 0.9375rem; padding: 18px 4px; }
