@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
 import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
 import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
+import { openChecklistCount } from '../lib/taskDetails';
 
 async function createSubtaskRows(taskId, count) {
   if (count <= 1) return [];
@@ -197,7 +198,8 @@ export function useTasks() {
     }
 
     // Checking off the last of today's "N раз в день" chips completes the task
-    // (and, if it repeats, spawns tomorrow's occurrence with fresh chips).
+    // (and, if it repeats, spawns tomorrow's occurrence with fresh chips) —
+    // unless its checklist still has unticked items.
     // Checking off the last goal step marks the goal completed (archived) too —
     // goals don't recur, so there's no respawn, just a one-way "done".
     if (!done) return;
@@ -207,7 +209,8 @@ export function useTasks() {
     if (!allDone) return;
 
     if (owner.kind === 'task') {
-      completeAndRespawn(owner);
+      // Unticked checklist items keep it open: "Готово" finishes it later.
+      if (openChecklistCount(owner) === 0) completeAndRespawn(owner);
     } else {
       setTasks((prev) => prev.filter((t) => t.id !== owner.id));
       try {

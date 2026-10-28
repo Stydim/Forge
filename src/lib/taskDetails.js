@@ -45,3 +45,18 @@ export const newChecklistItem = (title) => ({
 
 // Unticked checklist items — a task can't be marked done while any remain.
 export const openChecklistCount = (task) => (task.checklist || []).filter((c) => !c.done).length;
+
+// Today's "N раз в день" repeats not done yet (they're the task's subtask chips).
+export const openRepeatCount = (task) => (task.subtasks || []).filter((s) => !s.done).length;
+
+// Why "Готово" is disabled (unticked checklist items / undone repeats), or
+// null when the task can be completed.
+export function doneBlocker(task) {
+  const items = openChecklistCount(task);
+  const repeats = openRepeatCount(task);
+  if (!items && !repeats) return null;
+  const parts = [];
+  if (repeats) parts.push(`повторов: ${repeats}`);
+  if (items) parts.push(`пунктов чек-листа: ${items}`);
+  return `Сначала выполните всё — осталось ${parts.join(', ')}`;
+}

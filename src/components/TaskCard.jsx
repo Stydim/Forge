@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { ListChecks, Pencil, Timer } from 'lucide-react';
 import { pluralRu } from '../lib/format';
-import { formatDurationShort, openChecklistCount, priorityOf } from '../lib/taskDetails';
+import { doneBlocker, formatDurationShort, priorityOf } from '../lib/taskDetails';
 
-// "Готово" stays disabled until every checklist item is ticked.
+// "Готово" stays disabled until every repeat and checklist item is done.
 const doneGate = (task) => {
-  const open = openChecklistCount(task);
-  return open > 0 ? { disabled: true, title: `Сначала отметьте все пункты чек-листа (осталось ${open})` } : {};
+  const blocker = doneBlocker(task);
+  return blocker ? { disabled: true, title: blocker } : {};
 };
 
 // Title with the priority dot in front (none = no dot).

@@ -1,11 +1,12 @@
 import { createPortal } from 'react-dom';
 import { Check, Pencil, Timer, X } from 'lucide-react';
-import { formatDurationShort, openChecklistCount, priorityOf } from '../lib/taskDetails';
+import { doneBlocker, formatDurationShort, priorityOf } from '../lib/taskDetails';
 
-// Opens on a click on a task card: the task's notes (description), its
-// checklist with items that can be ticked right here, category/tags/time,
-// and quick actions. Ticks are saved immediately via onChecklistChange.
-export default function TaskDetailsModal({ task, meta, timer, onClose, onChecklistChange, onEdit, onOpenTimer, onDone }) {
+// Opens on a click on a task card: the task's notes (description), today's
+// "N раз в день" repeats and its checklist — both can be ticked right here —
+// category/tags/time, and quick actions. Ticks are saved immediately via
+// onRepeatToggle / onChecklistChange.
+export default function TaskDetailsModal({ task, meta, timer, onClose, onChecklistChange, onRepeatToggle, onEdit, onOpenTimer, onDone }) {
   const prio = task.priority && task.priority !== 'none' ? priorityOf(task.priority) : null;
   const category = task.category_id && meta?.categories.find((c) => c.id === task.category_id);
   const tags = (task.tags || []).map((name) => meta?.tags.find((t) => t.name === name) || { name, color: '#A39C88' });
@@ -14,7 +15,9 @@ export default function TaskDetailsModal({ task, meta, timer, onClose, onCheckli
   const spent = task.time_spent_seconds || 0;
   const target = task.time_target_minutes || 0;
   const timerHere = timer?.taskId === task.id;
-  const openItems = openChecklistCount(task);
+  const repeats = task.subtasks || [];
+  const repeatsDone = repeats.filter((r) => r.done).length;
+  const blocker = doneBlocker(task);
 
   const toggle = (id) => onChecklistChange(task.id, checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c)));
 
@@ -43,6 +46,28 @@ export default function TaskDetailsModal({ task, meta, timer, onClose, onCheckli
         {task.description
           ? <div className="details-notes">{task.description}</div>
           : <button type="button" className="details-empty" onClick={() => onEdit(task)}>Заметок нет — добавить</button>}
+
+        {repeats.length > 0 && (
+          <>
+            <div className="task-modal-label">
+              Повторы в день<span className="details-count"> · {repeatsDone} из {repeats.length}</span>
+            </div>
+            <div className="task-subtasks details-repeats">
+              {repeats.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`task-subtask-chip${r.active ? ' active' : r.done ? '' : ' pending'}`}
+                  onClick={() => onRepeatToggle(r.id, !r.done)}
+                  aria-pressed={r.done}
+                  title={r.done ? 'Выполнено — нажмите, чтобы снять' : 'Отметить повтор'}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="task-modal-label">
           Чек-лист{checklist.length > 0 && <span className="details-count"> · {done} из {checklist.length}</span>}
@@ -82,8 +107,8 @@ export default function TaskDetailsModal({ task, meta, timer, onClose, onCheckli
               type="button"
               className="task-modal-btn save"
               onClick={() => onDone(task.id)}
-              disabled={openItems > 0}
-              title={openItems > 0 ? `Сначала отметьте все пункты чек-листа (осталось ${openItems})` : undefined}
+              disabled={!!blocker}
+              title={blocker || undefined}
             >
               Готово
             </button>

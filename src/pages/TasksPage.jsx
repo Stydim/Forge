@@ -395,6 +395,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
           timer={timer}
           onClose={() => setDetailsId(null)}
           onChecklistChange={(id, checklist) => patchTask(id, { checklist })}
+          onRepeatToggle={toggleSubtask}
           onEdit={(t) => { setDetailsId(null); onEditTask(t); }}
           onOpenTimer={(id) => { setDetailsId(null); onOpenTimer(id); }}
           onDone={(id) => { setDetailsId(null); handleDone(id); }}
