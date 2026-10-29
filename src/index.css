@@ -2237,3 +2237,22 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 .task-card .btn-pill-solid-red:disabled:hover { background: var(--accent-red); }
 .task-card .btn-pill-outline-teal:disabled:hover { background: transparent; }
 .details-repeats { margin: 0 0 14px; }
+
+/* ---------- Windows on a phone ----------
+   Android's 100vh includes the browser bars, so heights use dvh; padding
+   shrinks, long titles keep clear of the × button, and button rows wrap
+   instead of running off the right edge. */
+.task-modal { max-height: calc(100dvh - 48px); overflow-x: hidden; }
+@media (max-width: 520px) {
+  .task-modal-overlay { padding: 12px; }
+  .task-modal { max-height: calc(100dvh - 24px); padding: 24px 18px 20px; border-radius: 22px; }
+  .task-modal-close { top: 14px; right: 14px; }
+  .task-modal-title { font-size: 1.25rem; padding-right: 40px; overflow-wrap: anywhere; }
+  .task-modal-actions { flex-wrap: wrap; }
+  .task-modal-actions-left { flex-wrap: wrap; gap: 8px; }
+  .task-modal-actions-right { flex: 1 1 100%; }
+  .task-modal-btn { padding: 14px 12px; }
+  .details-title { font-size: 1.25rem; }
+  .details-actions .task-modal-actions-left { flex: 1 1 100%; }
+  .details-actions .task-modal-actions-left .task-modal-btn-small { flex: 1; justify-content: center; }
+}
