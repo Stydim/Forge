@@ -124,10 +124,6 @@
 
 @media (max-width: 520px) {
   .subs-title { font-size: 1.6rem; }
-  .subs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .subs-card-cover { height: 92px; padding-top: 22px; }
-  .subs-card-cover:has(img) { padding-top: 0; }
-  .subs-card-cover-icon { font-size: 2rem; }
-  .subs-card-body { padding: 10px 10px 12px; }
-  .subs-card-head { flex-direction: column; gap: 0; }
+  .subs-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .subs-card-cover { height: 130px; }
 }
