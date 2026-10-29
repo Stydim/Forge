@@ -1,5 +1,5 @@
 /* ---------- Weight tracker ---------- */
-.weight-page { max-width: 1040px; }
+.goals-page.weight-page { max-width: 1200px; }
 /* Two columns only when the ring card fits next to the chart. */
 .weight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 16px; margin-bottom: 16px; }
 .weight-card {
@@ -59,11 +59,46 @@
 .weight-ring-value { font-size: 2.75rem; font-weight: 800; line-height: 1; color: var(--accent-amber); margin-bottom: 6px; }
 .weight-ring-sub { font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.35; }
 
-.weight-page .weight-stats { margin-bottom: 28px; }
-.weight-stats small { font-size: 0.8125rem; font-weight: 700; color: var(--text-secondary); }
-.weight-stats .stat-label { display: flex; align-items: center; gap: 6px; }
-.weight-goal-card { font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.weight-goal-card:hover { border-color: var(--accent-teal); }
+/* Sanct's layout: header with the range toggle, coloured stat cards,
+   check marks on reached milestones, floating "+" button. */
+.weight-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.weight-title { font-size: 2rem; font-weight: 800; margin: 0 0 6px; }
+.weight-subtitle { margin: 0; color: var(--text-secondary); }
+.weight-progress-title { font-size: 1.25rem; font-weight: 800; text-align: center; margin: 4px 0 20px; }
+.weight-ring-tick { display: flex; align-items: center; justify-content: center; color: var(--text-inverse); }
+.weight-ring-center { box-shadow: 0 8px 24px rgba(38, 35, 28, 0.12); }
+.weight-ring-sub.dim { margin-top: 2px; }
+
+.weight-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+.weight-stat {
+  position: relative; overflow: hidden; border: none; border-radius: var(--radius-lg);
+  padding: 18px 20px 20px; font: inherit; text-align: left; color: var(--text-primary);
+}
+.weight-stat-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 10px; opacity: 0.85; }
+.weight-stat-value { font-size: 2.5rem; font-weight: 800; line-height: 1.1; }
+.weight-stat-value small { font-size: 0.875rem; font-weight: 700; opacity: 0.75; }
+.weight-stat.current { background: #A8E6CF; color: #1F3B33; }
+.weight-stat-bg { position: absolute; right: -10px; bottom: -20px; opacity: 0.12; }
+.weight-stat.goal { background: #E3E1FB; cursor: pointer; transition: transform 0.15s ease; }
+.weight-stat.goal .weight-stat-label { color: #6C5CE7; }
+.weight-stat.goal:hover { transform: translateY(-2px); }
+.weight-stat.change { background: var(--accent-red-bg); color: var(--accent-red); }
+
+.weight-row-actions { display: flex; gap: 4px; margin-left: 8px; }
+.weight-row .weight-row-delete { color: var(--accent-red); }
+.weight-bmi-title { text-align: center; margin-bottom: 12px; }
+.weight-height-head { display: flex; align-items: center; gap: 14px; }
+.weight-height-icon { width: 46px; height: 46px; border-radius: 12px; background: var(--bg-chip); color: #6C5CE7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.weight-height-name { font-weight: 700; }
+.weight-fab {
+  position: fixed; right: 32px; bottom: 32px; z-index: 20;
+  width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--accent-teal); color: var(--text-inverse);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(27, 138, 120, 0.4);
+}
+.weight-fab:hover { background: var(--accent-teal-dark); }
+.goals-page.weight-page { padding-bottom: 96px; }
 
 .weight-section-title { font-size: 1.0625rem; font-weight: 800; margin: 0 0 12px; }
 .weight-history {
@@ -102,6 +137,8 @@
   .weight-progress-body { flex-direction: column; }
   .weight-side, .weight-side.right { flex-direction: row; gap: 24px; text-align: center; justify-content: center; }
   .weight-progress-body > .weight-side.right { order: 2; }
-  .weight-page .weight-stats { grid-template-columns: 1fr; }
+  .weight-stats { grid-template-columns: 1fr; }
+  .weight-title { font-size: 1.6rem; }
+  .weight-fab { right: 20px; bottom: 20px; }
   .weight-row { gap: 10px; padding: 10px 12px; }
 }

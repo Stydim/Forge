@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pencil, Scale, Target, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { Check, Pencil, Plus, Scale, Target, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useWeight } from '../hooks/useWeight';
 import '../weight.css';
 
@@ -14,7 +14,6 @@ const RANGES = [
   { value: 'week', label: 'Неделя', days: 7 },
   { value: 'month', label: 'Месяц', days: 31 },
   { value: 'year', label: 'Год', days: 366 },
-  { value: 'all', label: 'Всё', days: null },
 ];
 
 const BMI_ZONES = [
@@ -123,15 +122,16 @@ function ProgressRing({ start, current, goal, percent, minWeek }) {
         <circle cx="120" cy="120" r={R} fill="none" stroke="var(--accent-teal)" strokeWidth="14" strokeLinecap="round" strokeDasharray={`${(percent / 100) * track} ${C}`} transform="rotate(135 120 120)" style={{ transition: 'stroke-dasharray 0.5s ease' }} />
       </svg>
       {ticks.map((t) => (
-        <span key={t.f} className={`weight-ring-tick${current != null && reached(t.val) ? ' reached' : ''}`} style={pos(t.f)} title={`${fmt(t.val)} кг`} />
+        <span key={t.f} className={`weight-ring-tick${current != null && reached(t.val) ? ' reached' : ''}`} style={pos(t.f)} title={`${fmt(t.val)} кг`}>
+          {current != null && reached(t.val) && <Check size={11} strokeWidth={4} />}
+        </span>
       ))}
       {current != null && goal && <span className="weight-ring-current" style={pos(percent / 100)} />}
       <div className="weight-ring-center">
         <div className="weight-ring-label">Прогресс {percent}%</div>
         <div className="weight-ring-value">{fmt(current)}</div>
-        <div className="weight-ring-sub">
-          {minWeek ? <>Минимум за 7 дней: {fmt(minWeek.value)}<br />{minWeek.daysAgo ? `${minWeek.daysAgo} дн. назад` : 'сегодня'}</> : 'За 7 дней записей нет'}
-        </div>
+        <div className="weight-ring-sub">Минимум за 7 дней</div>
+        <div className="weight-ring-sub dim">{minWeek ? `${fmt(minWeek.value)} кг · ${minWeek.daysAgo} дн. назад` : 'записей нет'}</div>
       </div>
     </div>
   );
@@ -286,15 +286,20 @@ export default function WeightPage() {
 
   const history = [...logs].reverse();
   const dateLong = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateShort = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <div className="goals-page weight-page">
-      <div className="goals-page-header">
+      <div className="weight-header">
         <div>
-          <div className="page-date">ТРЕКЕР ВЕСА</div>
-          <h1 className="page-heading">{current != null ? `${fmt(current)} кг` : 'Первое взвешивание'}</h1>
+          <h1 className="weight-title">Трекер веса</h1>
+          <p className="weight-subtitle">Ты молодец, продолжай в том же духе! ✨</p>
         </div>
-        <button className="goals-new-btn" onClick={() => setEditing('new')}>+ Запись</button>
+        <div className="weight-range" role="group" aria-label="Период">
+          {RANGES.map((r) => (
+            <button key={r.value} type="button" className={range === r.value ? 'active' : ''} onClick={() => setRange(r.value)}>{r.label}</button>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -305,23 +310,16 @@ export default function WeightPage() {
 
       <div className="weight-grid">
         <section className="weight-card">
-          <div className="weight-card-head">
-            <span className="weight-card-title">Тренд веса</span>
-            <div className="weight-range" role="group" aria-label="Период">
-              {RANGES.map((r) => (
-                <button key={r.value} type="button" className={range === r.value ? 'active' : ''} onClick={() => setRange(r.value)}>{r.label}</button>
-              ))}
-            </div>
-          </div>
+          <div className="weight-card-head"><span className="weight-card-title">Тренд веса</span></div>
           {!loading && <TrendChart logs={logs} range={range} />}
         </section>
 
         <section className="weight-card weight-progress">
-          <div className="weight-card-head"><span className="weight-card-title">Путь к цели</span></div>
+          <h2 className="weight-progress-title">Правильный вес</h2>
           <div className="weight-progress-body">
             <div className="weight-side">
-              <div><div className="weight-side-label">Старт 🚀</div><div className="weight-side-value">{fmt(start)} кг</div>{first && <div className="weight-side-sub">{dateLong(first.measured_at)}</div>}</div>
               <div><div className="weight-side-label">ИМТ</div><div className="weight-side-value">{bmi ? fmt(bmi) : '—'}</div></div>
+              <div><div className="weight-side-label">Начать 🚀</div><div className="weight-side-value">{fmt(start)} кг</div>{first && <div className="weight-side-sub">{dateShort(first.measured_at)}</div>}</div>
             </div>
             <ProgressRing start={start} current={current} goal={goal} percent={percent} minWeek={minWeek} />
             <div className="weight-side right">
@@ -332,26 +330,24 @@ export default function WeightPage() {
         </section>
       </div>
 
-      <div className="stats-row weight-stats">
-        <div className="stat-card streak">
-          <div className="stat-label">Текущий вес</div>
-          <div className="stat-value">{fmt(current)} <small>кг</small></div>
-          <div className="stat-sub">{last ? dateLong(last.measured_at) : 'нет записей'}</div>
+      <div className="weight-stats">
+        <div className="weight-stat current">
+          <div className="weight-stat-label">Текущий вес</div>
+          <div className="weight-stat-value">{fmt(current)} <small>кг</small></div>
+          <Scale className="weight-stat-bg" size={80} />
         </div>
-        <button type="button" className="stat-card weight-goal-card" onClick={() => setGoalOpen(true)} title="Изменить цель">
-          <div className="stat-label">Цель <Target size={13} /></div>
-          <div className="stat-value">{goal ? fmt(goal) : '—'} <small>кг</small></div>
-          <div className="stat-sub">{goal && current != null ? `осталось ${fmt(Math.abs(current - goal))} кг` : 'нажмите, чтобы задать'}</div>
+        <button type="button" className="weight-stat goal" onClick={() => setGoalOpen(true)} title="Нажмите, чтобы изменить цель">
+          <div className="weight-stat-label"><span>Цель</span><Target size={14} /></div>
+          <div className="weight-stat-value">{goal ? fmt(goal) : '—'} <small>кг</small></div>
         </button>
-        <div className="stat-card">
-          <div className="stat-label">Изменение {change <= 0 ? <TrendingDown size={13} /> : <TrendingUp size={13} />}</div>
-          <div className="stat-value">{signed(change)} <small>кг</small></div>
-          <div className="stat-sub">с первой записи</div>
+        <div className="weight-stat change">
+          <div className="weight-stat-label"><span>Прогресс</span>{change <= 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}</div>
+          <div className="weight-stat-value">{signed(change)} <small>кг</small></div>
         </div>
       </div>
 
       <h2 className="weight-section-title">История записей</h2>
-      {!loading && history.length === 0 && <div className="archive-empty">Пока нет ни одной записи — добавь первую.</div>}
+      {!loading && history.length === 0 && <div className="archive-empty">Нет ни одной записи</div>}
       <div className="weight-history">
         {history.map((log, i) => {
           const prev = history[i + 1];
@@ -368,9 +364,12 @@ export default function WeightPage() {
               </div>
               <div className="weight-row-values">
                 <div className="weight-row-value">{fmt(log.value)} кг</div>
-                <div className={`weight-row-diff${diff ? (good ? ' good' : ' bad') : ''}`}>{diff == null ? 'первая' : `${signed(diff)} кг`}</div>
+                <div className={`weight-row-diff${diff ? (good ? ' good' : ' bad') : ''}`}>{diff == null ? '+0,0' : `${signed(diff)} кг`}</div>
               </div>
-              <button type="button" className="task-card-icon-btn" onClick={() => setEditing(log)} aria-label="Изменить запись"><Pencil size={15} /></button>
+              <div className="weight-row-actions">
+                <button type="button" className="task-card-icon-btn" onClick={() => setEditing(log)} aria-label="Редактировать" title="Редактировать"><Pencil size={15} /></button>
+                <button type="button" className="task-card-icon-btn weight-row-delete" onClick={() => { if (confirm('Удалить эту запись?')) deleteLog(log.id); }} aria-label="Удалить" title="Удалить"><Trash2 size={15} /></button>
+              </div>
             </div>
           );
         })}
@@ -378,16 +377,29 @@ export default function WeightPage() {
 
       <h2 className="weight-section-title">ИМТ (индекс массы тела)</h2>
       <div className="weight-grid">
-        <section className="weight-card"><BmiGauge bmi={bmi} /></section>
+        <section className="weight-card">
+          <div className="weight-card-title weight-bmi-title">Ваш показатель ИМТ</div>
+          <BmiGauge bmi={bmi} />
+        </section>
         <section className="weight-card weight-height">
-          <div className="weight-card-title">Ваш рост</div>
+          <div className="weight-height-head">
+            <div className="weight-height-icon"><Target size={22} /></div>
+            <div>
+              <div className="weight-height-name">Ваш рост</div>
+              <div className="weight-height-hint">Используется для расчёта ИМТ</div>
+            </div>
+          </div>
           <div className="weight-height-input">
-            <input className="task-modal-input" type="number" inputMode="numeric" placeholder="175" value={height} onChange={(e) => setHeight(e.target.value)} onBlur={saveHeight} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
+            <input className="task-modal-input" type="number" inputMode="numeric" placeholder="Рост в см" value={height} onChange={(e) => setHeight(e.target.value)} onBlur={saveHeight} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
             <span>см</span>
           </div>
-          <p className="weight-height-hint">Используется для расчёта ИМТ. ИМТ — ориентировочный показатель: он не учитывает соотношение мышц и жира.</p>
+          <p className="weight-height-hint">ИМТ — это ориентировочный показатель, который не учитывает соотношение мышечной и жировой массы.</p>
         </section>
       </div>
+
+      <button type="button" className="weight-fab" onClick={() => setEditing('new')} aria-label="Новая запись веса" title="Новая запись веса">
+        <Plus size={24} />
+      </button>
 
       {editing && (
         <LogModal
