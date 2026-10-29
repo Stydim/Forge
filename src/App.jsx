@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import TasksPage from './pages/TasksPage';
 import GoalsPage from './pages/GoalsPage';
 import HabitsPage from './pages/HabitsPage';
+import WeightPage from './pages/WeightPage';
 import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
@@ -153,6 +154,7 @@ export default function App() {
           />
           <Route path="/goals" element={<GoalsPage tasks={tasks} />} />
           <Route path="/habits" element={<HabitsPage habits={habits} />} />
+          <Route path="/weight" element={<WeightPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route
             path="/characters"

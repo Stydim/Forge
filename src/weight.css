@@ -1,0 +1,107 @@
+/* ---------- Weight tracker ---------- */
+.weight-page { max-width: 1040px; }
+/* Two columns only when the ring card fits next to the chart. */
+.weight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 16px; margin-bottom: 16px; }
+.weight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  min-width: 0;
+}
+.weight-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.weight-card-title { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.05em; color: var(--text-tertiary); text-transform: uppercase; }
+.weight-range { display: flex; gap: 2px; background: var(--bg-chip); border-radius: 999px; padding: 3px; }
+.weight-range button {
+  border: none; background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+}
+.weight-range button.active { background: var(--accent-teal); color: var(--text-inverse); }
+
+.weight-chart { display: flex; flex-direction: column; height: 250px; }
+.weight-chart-plot { position: relative; flex: 1; margin: 10px 8px 0; }
+.weight-chart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.weight-chart-point {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent-amber); border: 2px solid var(--bg-card);
+  transform: translate(-50%, -50%); cursor: default;
+}
+.weight-chart-point:hover { width: 14px; height: 14px; z-index: 2; }
+.weight-chart-tip {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  white-space: nowrap; background: var(--text-primary); color: var(--text-inverse);
+  font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 8px; pointer-events: none;
+}
+.weight-chart-point:hover .weight-chart-tip { display: block; }
+.weight-chart-labels { position: relative; height: 22px; margin: 8px 8px 0; }
+.weight-chart-labels span { position: absolute; transform: translateX(-50%); font-size: 0.6875rem; color: var(--text-tertiary); white-space: nowrap; }
+.weight-chart-labels span:first-child { transform: none; }
+.weight-chart-labels span:last-child { transform: translateX(-100%); }
+.weight-chart-empty { height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-tertiary); font-size: 0.875rem; text-align: center; }
+
+.weight-progress-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.weight-side { display: flex; flex-direction: column; gap: 36px; min-width: 0; white-space: nowrap; }
+.weight-side.right { text-align: right; }
+.weight-side-label { font-size: 0.75rem; color: var(--text-secondary); }
+.weight-side-value { font-size: 1.0625rem; font-weight: 800; }
+.weight-side-sub { font-size: 0.6875rem; color: var(--text-tertiary); }
+.weight-ring { position: relative; width: 240px; height: 240px; flex-shrink: 0; }
+.weight-ring svg { position: absolute; inset: 0; }
+.weight-ring-tick, .weight-ring-current { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; }
+.weight-ring-tick { width: 14px; height: 14px; background: var(--bg-card); border: 2px solid var(--border-color); }
+.weight-ring-tick.reached { width: 16px; height: 16px; background: var(--accent-teal); border-color: var(--bg-card); }
+.weight-ring-current { width: 20px; height: 20px; background: var(--bg-card); border: 5px solid var(--accent-amber); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); z-index: 1; }
+.weight-ring-center {
+  position: absolute; inset: 34px; border-radius: 50%; background: var(--bg-chip);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px;
+}
+.weight-ring-label { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px; }
+.weight-ring-value { font-size: 2.75rem; font-weight: 800; line-height: 1; color: var(--accent-amber); margin-bottom: 6px; }
+.weight-ring-sub { font-size: 0.6875rem; color: var(--text-tertiary); line-height: 1.35; }
+
+.weight-page .weight-stats { margin-bottom: 28px; }
+.weight-stats small { font-size: 0.8125rem; font-weight: 700; color: var(--text-secondary); }
+.weight-stats .stat-label { display: flex; align-items: center; gap: 6px; }
+.weight-goal-card { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.weight-goal-card:hover { border-color: var(--accent-teal); }
+
+.weight-section-title { font-size: 1.0625rem; font-weight: 800; margin: 0 0 12px; }
+.weight-history {
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+  overflow: hidden; margin-bottom: 28px;
+}
+.weight-history:empty { display: none; }
+.weight-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+.weight-row:last-child { border-bottom: none; }
+.weight-row:hover { background: var(--bg-chip); }
+.weight-row-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--bg-chip); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.weight-row-main { flex: 1; min-width: 0; }
+.weight-row-date { font-weight: 700; }
+.weight-row-note { font-size: 0.8125rem; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.weight-row-values { text-align: right; }
+.weight-row-value { font-weight: 800; }
+.weight-row-diff { font-size: 0.8125rem; font-weight: 700; color: var(--text-tertiary); }
+.weight-row-diff.good { color: var(--accent-teal); }
+.weight-row-diff.bad { color: var(--accent-red); }
+
+.weight-bmi { display: flex; flex-direction: column; align-items: center; }
+.weight-bmi-gauge { width: 100%; max-width: 260px; }
+.weight-bmi-value { font-size: 30px; font-weight: 800; fill: var(--text-primary); }
+.weight-bmi-zone { font-weight: 800; margin: 2px 0 12px; }
+.weight-bmi-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; font-size: 0.75rem; color: var(--text-secondary); }
+.weight-bmi-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.weight-bmi-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.weight-height { display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.weight-height-input { display: flex; align-items: center; gap: 10px; }
+.weight-height-input input { margin: 0; font-size: 1.25rem; font-weight: 800; max-width: 160px; }
+.weight-height-input span { font-weight: 700; color: var(--text-secondary); }
+.weight-height-hint { font-size: 0.8125rem; color: var(--text-tertiary); line-height: 1.5; margin: 0; }
+.weight-modal .task-modal-input { margin-bottom: 16px; }
+
+@media (max-width: 520px) {
+  .weight-progress-body { flex-direction: column; }
+  .weight-side, .weight-side.right { flex-direction: row; gap: 24px; text-align: center; justify-content: center; }
+  .weight-progress-body > .weight-side.right { order: 2; }
+  .weight-page .weight-stats { grid-template-columns: 1fr; }
+  .weight-row { gap: 10px; padding: 10px 12px; }
+}

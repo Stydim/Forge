@@ -1113,6 +1113,64 @@ app.delete('/api/saved-words/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ---------- Weight tracker (ported from Sanct) ----------
+// forge.weight_logs: one row per weighing; forge.weight_settings: a single
+// row (id = 1) with the goal weight and the height used for BMI.
+
+const WEIGHT_LOG_COLUMNS = ['measured_at', 'value', 'note'];
+
+app.get('/api/weight', async (_req, res) => {
+  try {
+    const [logs, settings] = await Promise.all([
+      pool.query('select * from forge.weight_logs order by measured_at asc'),
+      pool.query('select goal_kg, height_cm from forge.weight_settings where id = 1'),
+    ]);
+    res.json({ logs: logs.rows, settings: settings.rows[0] || { goal_kg: null, height_cm: null } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/weight/logs', async (req, res) => {
+  try {
+    const { text, values } = buildInsert('weight_logs', WEIGHT_LOG_COLUMNS, req.body);
+    const { rows } = await pool.query(text, values);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/weight/logs/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('weight_logs', WEIGHT_LOG_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Weight log not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/weight/logs/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.weight_logs where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Body: { goal_kg?, height_cm? } — only the given fields change.
+app.put('/api/weight/settings', async (req, res) => {
+  try {
+    const num = (v) => (v == null || v === '' ? null : Number(v));
+    const goal = 'goal_kg' in req.body ? num(req.body.goal_kg) : undefined;
+    const height = 'height_cm' in req.body ? num(req.body.height_cm) : undefined;
+    const { rows } = await pool.query(
+      `insert into forge.weight_settings (id, goal_kg, height_cm) values (1, $1, $2)
+       on conflict (id) do update set
+         goal_kg = case when $3 then excluded.goal_kg else forge.weight_settings.goal_kg end,
+         height_cm = case when $4 then excluded.height_cm else forge.weight_settings.height_cm end
+       returning goal_kg, height_cm`,
+      [goal ?? null, height ?? null, goal !== undefined, height !== undefined],
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
 // sw.js is re-checked on every visit, so a new build's offline copy
 // replaces the old one.
 app.use(express.static(DIST, {
@@ -1216,6 +1274,23 @@ async function migrate() {
       book_title text,
       pinned boolean not null default false,
       created_at timestamptz not null default now()
+    )
+  `);
+  // Weight tracker (history imported from Sanct by scripts/import-sanct-weight.js).
+  await pool.query(`
+    create table if not exists forge.weight_logs (
+      id uuid primary key default gen_random_uuid(),
+      measured_at timestamptz not null default now(),
+      value double precision not null check (value > 0 and value < 500),
+      note text not null default '',
+      created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.weight_settings (
+      id integer primary key check (id = 1),
+      goal_kg double precision,
+      height_cm double precision
     )
   `);
 }

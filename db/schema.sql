@@ -222,3 +222,19 @@ create table forge.task_tags (
   color text not null default '#6C5CE7',
   created_at timestamptz not null default now()
 );
+
+-- Weight tracker (ported from Sanct): one row per weighing, plus a single
+-- settings row (id = 1) with the goal weight and the height for BMI.
+create table forge.weight_logs (
+  id uuid primary key default gen_random_uuid(),
+  measured_at timestamptz not null default now(),
+  value double precision not null check (value > 0 and value < 500),
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table forge.weight_settings (
+  id integer primary key check (id = 1),
+  goal_kg double precision,
+  height_cm double precision
+);

@@ -143,3 +143,10 @@ export const listDueWords = () => request('/saved-words/due');
 export const saveWord = (fields) => request('/saved-words', { method: 'POST', body: json(fields) });
 export const reviewWord = (id, grade) => request(`/saved-words/${id}/review`, { method: 'PATCH', body: json({ grade }) });
 export const deleteSavedWord = (id) => request(`/saved-words/${id}`, { method: 'DELETE' });
+
+// Weight tracker
+export const getWeight = () => request('/weight');
+export const createWeightLog = (fields) => request('/weight/logs', { method: 'POST', body: json(fields) });
+export const updateWeightLog = (id, fields) => request(`/weight/logs/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteWeightLog = (id) => request(`/weight/logs/${id}`, { method: 'DELETE' });
+export const saveWeightSettings = (fields) => request('/weight/settings', { method: 'PUT', body: json(fields) });
