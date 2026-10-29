@@ -76,7 +76,7 @@ export function useSubscriptions({ addTask } = {}) {
         if (!claimed) return;
         addTask({
           title: `Оплата: ${sub.name}`,
-          description: `${sub.amount} ${sub.currency} · следующая оплата ${date}`,
+          description: `${sub.amount} ${sub.currency} · следующая оплата ${date.split('-').reverse().join('.')}`,
           due_at: resolveDueAtWithoutTime(date).toISOString(),
           dueHasTime: false,
           priority: 'medium',
