@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, CreditCard, Plus, RefreshCw, RotateCcw, TrendingDown, X } from 'lucide-react';
+import { Check, ClipboardPaste, CreditCard, ImagePlus, Plus, RefreshCw, RotateCcw, TrendingDown, X } from 'lucide-react';
+import { uploadNoteImage } from '../lib/api';
 import { useExchangeRates } from '../hooks/useExchangeRates';
 import { pluralRu } from '../lib/format';
 import { COLORS, CURRENCIES, CYCLES, CYCLE_LABEL, ICONS, daysUntil, toMonthly } from '../lib/subscriptions';
@@ -32,48 +33,110 @@ function SubCard({ sub, onOpen, onPay, onUndo, convert, displaySymbol }) {
 
   return (
     <div className="subs-card" onClick={() => onOpen(sub)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen(sub)}>
-      <div className="subs-card-icon" style={{ background: `${sub.color}22`, borderColor: `${sub.color}44` }}>{sub.icon}</div>
+      <div className="subs-card-cover" style={{ background: sub.image_url ? undefined : `${sub.color}22` }}>
+        {sub.image_url
+          ? <img src={sub.image_url} alt="" draggable={false} />
+          : <span className="subs-card-cover-icon">{sub.icon}</span>}
+        <span className="subs-card-cover-badge">
+          {sub.active ? <StatusBadge days={days} /> : <span className="subs-badge off">Неактивна</span>}
+        </span>
+      </div>
 
-      <div className="subs-card-main">
-        <div className="subs-card-name">{sub.name}</div>
+      <div className="subs-card-body">
+        <div className="subs-card-head">
+          <span className="subs-card-name">{sub.name}</span>
+          <span className="subs-card-month">
+            {money(showConverted ? converted : monthly)} {showConverted ? displaySymbol : sub.currency}<small>/мес</small>
+          </span>
+        </div>
         <div className="subs-card-price">
           {sub.amount} {sub.currency}{CYCLE_LABEL[sub.cycle] || ''}
-          {showConverted && <span className="subs-card-converted">≈ {money(converted)} {displaySymbol}/мес.</span>}
-          {!showConverted && sub.cycle !== 'monthly' && <span className="subs-card-monthly">(~{money(monthly)} {sub.currency}/мес.)</span>}
+          {sub.next_billing_date && ` · след. ${sub.next_billing_date.split('-').reverse().join('.')}`}
         </div>
         {count > 0 && (
           <div className="subs-card-total">
-            {count} {pluralRu(count, 'платёж', 'платежа', 'платежей')} · <b>итого {((sub.amount || 0) * count).toLocaleString('ru-RU')} {sub.currency}</b>
+            {count} {pluralRu(count, 'платёж', 'платежа', 'платежей')} · итого {((sub.amount || 0) * count).toLocaleString('ru-RU')} {sub.currency}
           </div>
         )}
-      </div>
 
-      <div className="subs-card-side">
-        {sub.active ? <StatusBadge days={days} /> : <span className="subs-inactive">Неактивна</span>}
-        {sub.active && sub.next_billing_date && (
-          <button
-            type="button"
-            className="subs-btn pay"
-            style={{ '--sub-color': sub.color }}
-            title="Оплатить — перейти к следующему периоду"
-            onClick={(e) => { e.stopPropagation(); onPay(sub); }}
-          >
-            <Check size={15} strokeWidth={2.5} />
-          </button>
-        )}
-        {sub.previous_billing_date && (
-          <button type="button" className="subs-btn undo" title="Отменить оплату" onClick={(e) => { e.stopPropagation(); onUndo(sub); }}>
-            <RotateCcw size={13} />
-          </button>
-        )}
+        {(sub.active && sub.next_billing_date) || sub.previous_billing_date ? (
+          <div className="subs-card-actions">
+            {sub.active && sub.next_billing_date && (
+              <button
+                type="button"
+                className="subs-btn pay"
+                style={{ '--sub-color': sub.color }}
+                title="Оплатить — перейти к следующему периоду"
+                onClick={(e) => { e.stopPropagation(); onPay(sub); }}
+              >
+                <Check size={15} strokeWidth={2.5} /> Оплачено
+              </button>
+            )}
+            {sub.previous_billing_date && (
+              <button type="button" className="subs-btn undo" title="Отменить оплату" aria-label="Отменить оплату" onClick={(e) => { e.stopPropagation(); onUndo(sub); }}>
+                <RotateCcw size={14} />
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+// Cover picker: paste (Ctrl+V anywhere in the editor or the button, which
+// reads the clipboard), drop a file, or pick one from the computer.
+function CoverPicker({ value, color, icon, onChange, pasteRef, busy, setBusy }) {
+  const inputRef = useRef(null);
+  const [err, setErr] = useState('');
+
+  const upload = async (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setBusy(true); setErr('');
+    try { onChange(await uploadNoteImage(file)); } catch { setErr('Не удалось загрузить изображение'); }
+    setBusy(false);
+  };
+  if (pasteRef) pasteRef.current = upload;
+
+  const pasteFromClipboard = async () => {
+    setErr('');
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith('image/'));
+        if (type) return upload(new File([await item.getType(type)], 'cover', { type }));
+      }
+      setErr('В буфере нет изображения');
+    } catch { setErr('Нет доступа к буферу — нажмите Ctrl+V'); }
+  };
+
+  return (
+    <div className="subs-cover-picker">
+      <div
+        className={`subs-cover-drop${busy ? ' busy' : ''}`}
+        style={{ background: value ? undefined : `${color}22` }}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files[0]); }}
+        role="button"
+        tabIndex={0}
+      >
+        {value ? <img src={value} alt="" /> : <span className="subs-card-cover-icon">{icon}</span>}
+        <span className="subs-cover-hint">{busy ? 'Загрузка…' : (value ? 'Заменить' : 'Ctrl+V, перетащите или выберите файл')}</span>
+      </div>
+      <div className="subs-cover-actions">
+        <button type="button" className="task-modal-btn-small" onClick={() => inputRef.current?.click()}><ImagePlus size={14} /> С компьютера</button>
+        <button type="button" className="task-modal-btn-small" onClick={pasteFromClipboard}><ClipboardPaste size={14} /> Из буфера</button>
+        {value && <button type="button" className="task-modal-btn-small subs-danger" onClick={() => onChange(null)}>Убрать</button>}
+      </div>
+      {err && <div className="subs-cover-error">{err}</div>}
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={(e) => { upload(e.target.files[0]); e.target.value = ''; }} />
     </div>
   );
 }
 
 const EMPTY = {
   name: '', amount: '', currency: '₽', cycle: 'monthly', next_billing_date: '',
-  icon: '💳', color: '#6C5CE7', active: true, auto_task: false, auto_task_days: 3,
+  icon: '💳', color: '#6C5CE7', active: true, auto_task: false, auto_task_days: 3, image_url: null,
 };
 
 function SubscriptionEditor({ sub, onClose, onSave, onDelete }) {
@@ -81,6 +144,17 @@ function SubscriptionEditor({ sub, onClose, onSave, onDelete }) {
   const [customCurrency, setCustomCurrency] = useState(() => !!sub && !CURRENCIES.some((c) => c.symbol === sub.currency));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
+  const coverPaste = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  // An image pasted anywhere in the editor becomes the cover; text pastes
+  // into the inputs as usual.
+  const onPaste = (e) => {
+    const file = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'));
+    if (!file) return;
+    e.preventDefault();
+    coverPaste.current?.(file);
+  };
 
   const save = (e) => {
     e.preventDefault();
@@ -93,6 +167,7 @@ function SubscriptionEditor({ sub, onClose, onSave, onDelete }) {
       next_billing_date: form.next_billing_date || null,
       icon: form.icon,
       color: form.color,
+      image_url: form.image_url || null,
       active: form.active,
       auto_task: form.auto_task,
       auto_task_days: Math.max(0, Math.min(60, parseInt(form.auto_task_days, 10) || 0)),
@@ -101,13 +176,16 @@ function SubscriptionEditor({ sub, onClose, onSave, onDelete }) {
 
   return createPortal(
     <div className="task-modal-overlay" onClick={onClose}>
-      <form className="task-modal subs-modal" onClick={(e) => e.stopPropagation()} onSubmit={save}>
+      <form className="task-modal subs-modal" onClick={(e) => e.stopPropagation()} onSubmit={save} onPaste={onPaste}>
         <button type="button" className="task-modal-close" onClick={onClose} aria-label="Закрыть"><X size={20} /></button>
         <h2 className="task-modal-title">{sub ? 'Редактировать подписку' : 'Новая подписка'}</h2>
 
+        <div className="task-modal-label">Обложка</div>
+        <CoverPicker value={form.image_url} color={form.color} icon={form.icon} onChange={(url) => set('image_url', url)} pasteRef={coverPaste} busy={uploading} setBusy={setUploading} />
+
         <div className="subs-form-row">
           <div>
-            <div className="task-modal-label">Иконка</div>
+            <div className="task-modal-label">Иконка (без обложки)</div>
             <select className="task-modal-input subs-icon-select" value={form.icon} onChange={(e) => set('icon', e.target.value)}>
               {ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
             </select>
@@ -189,7 +267,7 @@ function SubscriptionEditor({ sub, onClose, onSave, onDelete }) {
           </div>
           <div className="task-modal-actions-right">
             <button type="button" className="task-modal-btn cancel" onClick={onClose}>Отмена</button>
-            <button type="submit" className="task-modal-btn save" disabled={!form.name.trim()}>Сохранить</button>
+            <button type="submit" className="task-modal-btn save" disabled={!form.name.trim() || uploading}>Сохранить</button>
           </div>
         </div>
       </form>

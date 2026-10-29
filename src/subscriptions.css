@@ -36,37 +36,45 @@
 }
 .subs-section-head.muted .subs-count { background: var(--bg-chip); color: var(--text-secondary); }
 
-.subs-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+.subs-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
 .subs-grid.paused { opacity: 0.65; }
 .subs-card {
-  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; cursor: pointer;
+  display: flex; flex-direction: column; border-radius: 16px; cursor: pointer; overflow: hidden;
   background: var(--bg-card); border: 1px solid var(--border-color);
   transition: box-shadow 0.15s, transform 0.15s;
 }
 .subs-card:hover { box-shadow: 0 6px 18px rgba(38, 35, 28, 0.08); transform: translateY(-1px); }
-.subs-card-icon {
-  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; border: 2px solid transparent;
-  display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+.subs-card-cover {
+  position: relative; height: 112px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-.subs-card-main { flex: 1; min-width: 0; }
-.subs-card-name { font-weight: 800; font-size: 0.95rem; }
-.subs-card-price { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
-.subs-card-converted { margin-left: 6px; color: var(--accent-teal); font-weight: 700; }
-.subs-card-monthly { margin-left: 6px; color: var(--text-tertiary); }
-.subs-card-total { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 3px; }
-.subs-card-total b { color: var(--text-secondary); }
-.subs-card-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.subs-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.subs-card-cover-icon { font-size: 2.6rem; line-height: 1; }
+.subs-card-cover-badge { position: absolute; top: 8px; right: 8px; }
+.subs-card-cover-badge .subs-badge { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.subs-card-body { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px 14px; flex: 1; }
+.subs-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.subs-card-name { font-weight: 800; font-size: 1rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subs-card-month { font-weight: 800; color: var(--accent-teal); white-space: nowrap; }
+.subs-card-month small { font-size: 0.72rem; font-weight: 600; color: var(--text-tertiary); }
+.subs-card-price { font-size: 0.8rem; color: var(--text-secondary); }
+.subs-card-total { font-size: 0.75rem; color: var(--text-tertiary); }
+.subs-card-actions { display: flex; gap: 6px; margin-top: auto; padding-top: 10px; }
 
 .subs-badge { border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
 .subs-badge.late { background: var(--accent-red-bg); color: var(--accent-red); }
 .subs-badge.soon { background: rgba(253, 203, 110, 0.25); color: #B7791F; }
-.subs-badge.ok { background: var(--accent-teal-bg); color: var(--accent-teal-dark); }
+.subs-badge.ok { background: #E3F2EE; color: var(--accent-teal-dark); }
+.subs-badge.off { background: var(--bg-chip); color: var(--text-secondary); font-style: italic; }
+.subs-badge.late { background: #FBEAE6; }
+.subs-badge.soon { background: #FBF0D5; }
 .subs-inactive { font-size: 0.75rem; color: var(--text-tertiary); font-style: italic; }
 
 .subs-btn {
-  flex-shrink: 0; border: none; cursor: pointer; width: 30px; height: 30px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  flex-shrink: 0; border: none; cursor: pointer; height: 34px; min-width: 34px; border-radius: 10px; gap: 6px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s; font: inherit; font-size: 0.85rem; font-weight: 700;
 }
+.subs-btn.pay { flex: 1; }
 .subs-btn.pay { background: color-mix(in srgb, var(--sub-color) 14%, transparent); color: var(--sub-color); }
 .subs-btn.pay:hover { background: var(--sub-color); color: #fff; }
 .subs-btn.undo { background: var(--bg-chip); color: var(--text-secondary); }
@@ -83,6 +91,20 @@
 .subs-modal .task-modal-input { margin-bottom: 14px; }
 .subs-form-row { display: flex; gap: 10px; }
 .subs-grow { flex: 1; min-width: 0; }
+.subs-cover-picker { margin-bottom: 16px; }
+.subs-cover-drop {
+  position: relative; height: 120px; border-radius: 14px; overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; border: 1.5px dashed var(--border-color);
+}
+.subs-cover-drop img { width: 100%; height: 100%; object-fit: cover; }
+.subs-cover-drop.busy { opacity: 0.6; }
+.subs-cover-hint {
+  position: absolute; left: 8px; bottom: 8px; right: 8px; text-align: center; font-size: 0.75rem; font-weight: 700;
+  color: var(--text-secondary); background: rgba(255, 255, 255, 0.85); border-radius: 8px; padding: 3px 8px;
+}
+.subs-cover-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.subs-cover-actions .task-modal-btn-small { display: inline-flex; align-items: center; gap: 5px; }
+.subs-cover-error { margin-top: 6px; font-size: 0.8rem; color: var(--accent-red); }
 .subs-icon-select { width: 72px; font-size: 1.3rem; text-align: center; padding: 8px 4px; cursor: pointer; }
 .subs-currency-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .subs-currency-chip {
@@ -101,6 +123,10 @@
 
 @media (max-width: 520px) {
   .subs-title { font-size: 1.6rem; }
-  .subs-card { gap: 10px; padding: 12px; }
-  .subs-card-side { flex-direction: column; align-items: flex-end; }
+  .subs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .subs-card-cover { height: 92px; padding-top: 22px; }
+  .subs-card-cover:has(img) { padding-top: 0; }
+  .subs-card-cover-icon { font-size: 2rem; }
+  .subs-card-body { padding: 10px 10px 12px; }
+  .subs-card-head { flex-direction: column; gap: 0; }
 }

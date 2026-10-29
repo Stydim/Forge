@@ -259,6 +259,7 @@ create table forge.subscriptions (
   auto_task boolean not null default false,
   auto_task_days integer not null default 3,
   auto_task_last_created text,
+  image_url text, -- cover image (an /api/note-images/:id url)
   created_at timestamptz not null default now()
 );
 

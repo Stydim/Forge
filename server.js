@@ -1187,6 +1187,7 @@ app.put('/api/weight/settings', async (req, res) => {
 const SUBSCRIPTION_COLUMNS = [
   'name', 'amount', 'currency', 'cycle', 'next_billing_date', 'previous_billing_date',
   'icon', 'color', 'active', 'payments_count', 'auto_task', 'auto_task_days', 'auto_task_last_created',
+  'image_url',
 ];
 
 app.get('/api/subscriptions', async (_req, res) => {
@@ -1529,6 +1530,8 @@ async function migrate() {
       created_at timestamptz not null default now()
     )
   `);
+  // Cover image for the subscription tile (stored in note_images).
+  await pool.query('alter table forge.subscriptions add column if not exists image_url text');
   await pool.query(`
     create table if not exists forge.weight_settings (
       id integer primary key check (id = 1),
