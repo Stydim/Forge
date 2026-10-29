@@ -7,6 +7,7 @@ import GoalsPage from './pages/GoalsPage';
 import HabitsPage from './pages/HabitsPage';
 import WeightPage from './pages/WeightPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
+import NotesPage from './pages/NotesPage';
 import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
@@ -161,6 +162,7 @@ export default function App() {
           <Route path="/habits" element={<HabitsPage habits={habits} />} />
           <Route path="/weight" element={<WeightPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage subscriptions={subscriptions} />} />
+          <Route path="/notes" element={<NotesPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route
             path="/characters"

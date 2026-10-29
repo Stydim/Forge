@@ -1224,6 +1224,130 @@ app.post('/api/subscriptions/:id/claim-auto-task', async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
+// ---------- Notes (ported from Sanct) ----------
+// Notes hold TipTap HTML; category ids are text (Sanct's 'personal', 'ideas',
+// … plus uuids). sort_order is the drag-and-drop position (null = by date).
+
+const NOTE_COLUMNS = ['title', 'content', 'category_id', 'archived'];
+const NOTE_CATEGORY_COLUMNS = ['name', 'color', 'position'];
+
+app.get('/api/notes', async (_req, res) => {
+  try {
+    const [notes, categories] = await Promise.all([
+      pool.query('select * from forge.notes order by updated_at desc'),
+      pool.query('select * from forge.note_categories order by position asc, name asc'),
+    ]);
+    res.json({ notes: notes.rows, categories: categories.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/notes', async (req, res) => {
+  try {
+    const { text, values } = buildInsert('notes', NOTE_COLUMNS, req.body);
+    const { rows } = await pool.query(text, values);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// Any edit bumps updated_at (shown under the title), as in Sanct.
+app.patch('/api/notes/:id', async (req, res) => {
+  try {
+    const cols = Object.keys(req.body).filter((k) => NOTE_COLUMNS.includes(k));
+    if (!cols.length) throw new Error('No valid fields to update');
+    const set = cols.map((c, i) => `"${c}" = $${i + 2}`).join(', ');
+    const { rows } = await pool.query(
+      `update forge.notes set ${set}, updated_at = now() where id = $1 returning *`,
+      [req.params.id, ...cols.map((c) => req.body[c])],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Note not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/notes/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.notes where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Body: { ids } in the new order — doesn't touch updated_at.
+app.post('/api/notes/reorder', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    await pool.query(
+      `update forge.notes n set sort_order = o.ord - 1
+         from unnest($1::uuid[]) with ordinality as o(id, ord) where n.id = o.id`,
+      [ids],
+    );
+    res.status(204).end();
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.post('/api/note-categories', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `insert into forge.note_categories (name, color, position)
+       values ($1, $2, coalesce((select max(position) + 1 from forge.note_categories), 0)) returning *`,
+      [req.body.name, req.body.color || '#6C5CE7'],
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/note-categories/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('note_categories', NOTE_CATEGORY_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Category not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// Refused while active notes use the category (as in Sanct).
+app.delete('/api/note-categories/:id', async (req, res) => {
+  try {
+    const used = await pool.query('select 1 from forge.notes where category_id = $1 and archived = false limit 1', [req.params.id]);
+    if (used.rows.length) return res.status(409).json({ error: 'Category has active notes' });
+    await pool.query('delete from forge.note_categories where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/note-categories/reorder', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    await pool.query(
+      `update forge.note_categories c set position = o.ord - 1
+         from unnest($1::text[]) with ordinality as o(id, ord) where c.id = o.id`,
+      [ids],
+    );
+    res.status(204).end();
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// Images pasted into notes: stored in the DB, served with a long cache.
+app.post('/api/note-images', express.raw({ type: 'image/*', limit: '10mb' }), async (req, res) => {
+  try {
+    if (!req.body?.length) throw new Error('Empty image');
+    const { rows } = await pool.query(
+      'insert into forge.note_images (content_type, data) values ($1, $2) returning id',
+      [req.headers['content-type'], req.body],
+    );
+    res.json({ url: `/api/note-images/${rows[0].id}` });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.get('/api/note-images/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('select content_type, data from forge.note_images where id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).end();
+    res.set('Content-Type', rows[0].content_type);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(rows[0].data);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
 // sw.js is re-checked on every visit, so a new build's offline copy
 // replaces the old one.
 app.use(express.static(DIST, {
@@ -1336,6 +1460,42 @@ async function migrate() {
       measured_at timestamptz not null default now(),
       value double precision not null check (value > 0 and value < 500),
       note text not null default '',
+      created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.note_categories (
+      id text primary key default gen_random_uuid()::text,
+      name text not null,
+      color text not null default '#6C5CE7',
+      position integer not null default 0
+    )
+  `);
+  // Sanct's four standard categories, only into an empty table.
+  await pool.query(`
+    insert into forge.note_categories (id, name, color, position)
+    select * from (values
+      ('personal', 'Личное', '#6C5CE7', 0), ('ideas', 'Идеи', '#E17055', 1),
+      ('todo', 'Список дел', '#00B894', 2), ('urgent', 'Срочное', '#FF6B6B', 3)
+    ) v where not exists (select 1 from forge.note_categories)
+  `);
+  await pool.query(`
+    create table if not exists forge.notes (
+      id uuid primary key default gen_random_uuid(),
+      title text not null default '',
+      content text not null default '',
+      category_id text,
+      archived boolean not null default false,
+      sort_order integer,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.note_images (
+      id uuid primary key default gen_random_uuid(),
+      content_type text not null,
+      data bytea not null,
       created_at timestamptz not null default now()
     )
   `);

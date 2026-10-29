@@ -260,3 +260,31 @@ create table forge.subscriptions (
   auto_task_last_created text,
   created_at timestamptz not null default now()
 );
+
+-- Notes (ported from Sanct): TipTap HTML content, text category ids (Sanct's
+-- 'personal', 'ideas', … and uuids), drag-and-drop sort_order (null = by
+-- date). Pasted images live in note_images, served at /api/note-images/:id.
+create table forge.note_categories (
+  id text primary key default gen_random_uuid()::text,
+  name text not null,
+  color text not null default '#6C5CE7',
+  position integer not null default 0
+);
+
+create table forge.notes (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  content text not null default '',
+  category_id text,
+  archived boolean not null default false,
+  sort_order integer,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table forge.note_images (
+  id uuid primary key default gen_random_uuid(),
+  content_type text not null,
+  data bytea not null,
+  created_at timestamptz not null default now()
+);

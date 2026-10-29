@@ -157,3 +157,20 @@ export const createSubscription = (fields) => request('/subscriptions', { method
 export const updateSubscription = (id, fields) => request(`/subscriptions/${id}`, { method: 'PATCH', body: json(fields) });
 export const deleteSubscription = (id) => request(`/subscriptions/${id}`, { method: 'DELETE' });
 export const claimSubscriptionAutoTask = (id, billingDate) => request(`/subscriptions/${id}/claim-auto-task`, { method: 'POST', body: json({ billing_date: billingDate }) });
+
+// Notes
+export const getNotes = () => request('/notes');
+export const createNote = (fields) => request('/notes', { method: 'POST', body: json(fields) });
+export const updateNote = (id, fields) => request(`/notes/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteNote = (id) => request(`/notes/${id}`, { method: 'DELETE' });
+export const reorderNotes = (ids) => request('/notes/reorder', { method: 'POST', body: json({ ids }) });
+export const createNoteCategory = (fields) => request('/note-categories', { method: 'POST', body: json(fields) });
+export const updateNoteCategory = (id, fields) => request(`/note-categories/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteNoteCategory = (id) => request(`/note-categories/${id}`, { method: 'DELETE' });
+export const reorderNoteCategories = (ids) => request('/note-categories/reorder', { method: 'POST', body: json({ ids }) });
+
+export async function uploadNoteImage(blob) {
+  const res = await fetch(`${BASE}/note-images`, { method: 'POST', headers: { 'Content-Type': blob.type }, body: blob });
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return (await res.json()).url;
+}
