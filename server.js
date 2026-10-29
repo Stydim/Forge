@@ -1171,6 +1171,59 @@ app.put('/api/weight/settings', async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
+// ---------- Subscriptions (ported from Sanct) ----------
+// Dates are 'YYYY-MM-DD' text, as in Sanct. previous_billing_date is the date
+// before the last "оплачено" (one-step undo); payments_count counts payments.
+
+const SUBSCRIPTION_COLUMNS = [
+  'name', 'amount', 'currency', 'cycle', 'next_billing_date', 'previous_billing_date',
+  'icon', 'color', 'active', 'payments_count', 'auto_task', 'auto_task_days', 'auto_task_last_created',
+];
+
+app.get('/api/subscriptions', async (_req, res) => {
+  try {
+    const { rows } = await pool.query('select * from forge.subscriptions order by created_at asc');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/subscriptions', async (req, res) => {
+  try {
+    const { text, values } = buildInsert('subscriptions', SUBSCRIPTION_COLUMNS, req.body);
+    const { rows } = await pool.query(text, values);
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.patch('/api/subscriptions/:id', async (req, res) => {
+  try {
+    const { text, values } = buildPatch('subscriptions', SUBSCRIPTION_COLUMNS, req.params.id, req.body);
+    const { rows } = await pool.query(text, values);
+    if (!rows.length) return res.status(404).json({ error: 'Subscription not found' });
+    res.json(rows[0]);
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/subscriptions/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.subscriptions where id = $1', [req.params.id]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// The "Оплата: …" reminder task for a billing date is created once: the first
+// device to claim the date gets { claimed: true } and creates the task.
+app.post('/api/subscriptions/:id/claim-auto-task', async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      `update forge.subscriptions set auto_task_last_created = $2
+        where id = $1 and auto_task_last_created is distinct from $2`,
+      [req.params.id, req.body.billing_date],
+    );
+    res.json({ claimed: rowCount > 0 });
+  } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
 // sw.js is re-checked on every visit, so a new build's offline copy
 // replaces the old one.
 app.use(express.static(DIST, {
@@ -1283,6 +1336,25 @@ async function migrate() {
       measured_at timestamptz not null default now(),
       value double precision not null check (value > 0 and value < 500),
       note text not null default '',
+      created_at timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists forge.subscriptions (
+      id uuid primary key default gen_random_uuid(),
+      name text not null,
+      amount double precision not null default 0,
+      currency text not null default '₽',
+      cycle text not null default 'monthly' check (cycle in ('weekly', 'monthly', 'quarterly', 'yearly')),
+      next_billing_date text,
+      previous_billing_date text,
+      icon text not null default '💳',
+      color text not null default '#6C5CE7',
+      active boolean not null default true,
+      payments_count integer not null default 0,
+      auto_task boolean not null default false,
+      auto_task_days integer not null default 3,
+      auto_task_last_created text,
       created_at timestamptz not null default now()
     )
   `);

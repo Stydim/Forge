@@ -9,6 +9,7 @@ export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharact
     { to: '/goals', label: 'Цели', count: goalCount },
     { to: '/habits', label: 'Привычки' },
     { to: '/weight', label: 'Трекер веса' },
+    { to: '/subscriptions', label: 'Подписки' },
     { to: '/reader', label: 'Библиотека' },
     { to: '/progress', label: 'Прогресс' },
     { to: '/characters', label: 'Персонажи' },

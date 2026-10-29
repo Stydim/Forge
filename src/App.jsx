@@ -6,6 +6,7 @@ import TasksPage from './pages/TasksPage';
 import GoalsPage from './pages/GoalsPage';
 import HabitsPage from './pages/HabitsPage';
 import WeightPage from './pages/WeightPage';
+import SubscriptionsPage from './pages/SubscriptionsPage';
 import ProgressPage from './pages/ProgressPage';
 import CharactersPage from './pages/CharactersPage';
 import ArchivePage from './pages/ArchivePage';
@@ -17,6 +18,7 @@ import FlashcardsPage from './pages/FlashcardsPage';
 import TaskFormModal from './components/TaskFormModal';
 import { useTasks } from './hooks/useTasks';
 import { useHabits } from './hooks/useHabits';
+import { useSubscriptions } from './hooks/useSubscriptions';
 import { useBooks } from './hooks/useBooks';
 import { useSavedWords } from './hooks/useSavedWords';
 import { useQuotes } from './hooks/useQuotes';
@@ -32,6 +34,9 @@ const SELECTED_TASK_KEY = 'forge:selected-task-id';
 export default function App() {
   const tasks = useTasks();
   const habits = useHabits();
+  // Lives here (not in the page) so "Оплата: …" reminder tasks get created
+  // whichever page is open.
+  const subscriptions = useSubscriptions({ addTask: tasks.addTask });
   const books = useBooks();
   const savedWords = useSavedWords();
   const quotes = useQuotes();
@@ -155,6 +160,7 @@ export default function App() {
           <Route path="/goals" element={<GoalsPage tasks={tasks} />} />
           <Route path="/habits" element={<HabitsPage habits={habits} />} />
           <Route path="/weight" element={<WeightPage />} />
+          <Route path="/subscriptions" element={<SubscriptionsPage subscriptions={subscriptions} />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route
             path="/characters"

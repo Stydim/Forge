@@ -150,3 +150,10 @@ export const createWeightLog = (fields) => request('/weight/logs', { method: 'PO
 export const updateWeightLog = (id, fields) => request(`/weight/logs/${id}`, { method: 'PATCH', body: json(fields) });
 export const deleteWeightLog = (id) => request(`/weight/logs/${id}`, { method: 'DELETE' });
 export const saveWeightSettings = (fields) => request('/weight/settings', { method: 'PUT', body: json(fields) });
+
+// Subscriptions
+export const listSubscriptions = () => request('/subscriptions');
+export const createSubscription = (fields) => request('/subscriptions', { method: 'POST', body: json(fields) });
+export const updateSubscription = (id, fields) => request(`/subscriptions/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteSubscription = (id) => request(`/subscriptions/${id}`, { method: 'DELETE' });
+export const claimSubscriptionAutoTask = (id, billingDate) => request(`/subscriptions/${id}/claim-auto-task`, { method: 'POST', body: json({ billing_date: billingDate }) });

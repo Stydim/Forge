@@ -238,3 +238,25 @@ create table forge.weight_settings (
   goal_kg double precision,
   height_cm double precision
 );
+
+-- Subscriptions (ported from Sanct). Dates are 'YYYY-MM-DD' text;
+-- previous_billing_date allows undoing the last payment; auto_task creates an
+-- "Оплата: …" task auto_task_days before next_billing_date (once per date,
+-- tracked by auto_task_last_created).
+create table forge.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  amount double precision not null default 0,
+  currency text not null default '₽',
+  cycle text not null default 'monthly' check (cycle in ('weekly', 'monthly', 'quarterly', 'yearly')),
+  next_billing_date text,
+  previous_billing_date text,
+  icon text not null default '💳',
+  color text not null default '#6C5CE7',
+  active boolean not null default true,
+  payments_count integer not null default 0,
+  auto_task boolean not null default false,
+  auto_task_days integer not null default 3,
+  auto_task_last_created text,
+  created_at timestamptz not null default now()
+);

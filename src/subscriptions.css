@@ -1,0 +1,106 @@
+/* ---------- Subscriptions (layout from Sanct) ---------- */
+.goals-page.subs-page { max-width: 1200px; }
+.subs-title { font-size: 2rem; font-weight: 800; margin: 0 0 6px; }
+.subs-subtitle { margin: 0; color: var(--text-secondary); }
+.subs-page .goals-new-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+.subs-stats-block { margin-bottom: 28px; }
+.subs-currency-picker { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.subs-currency-picker > span:first-child { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-right: 6px; }
+.subs-currency-picker button {
+  border: none; cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 800;
+  padding: 3px 10px; border-radius: 16px; background: var(--bg-chip); color: var(--text-secondary);
+}
+.subs-currency-picker button.active { background: var(--accent-teal); color: var(--text-inverse); }
+.subs-rates-error { font-size: 0.72rem; color: var(--accent-red); margin-left: 6px; }
+.subs-spin { color: var(--text-tertiary); margin-left: 6px; animation: subs-spin 1s linear infinite; }
+@keyframes subs-spin { to { transform: rotate(360deg); } }
+
+.subs-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+.subs-stat {
+  flex: 1; min-width: 160px; padding: 16px 20px;
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+}
+.subs-stat-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.subs-stat-value { font-size: 1.5rem; font-weight: 800; }
+.subs-stat-value.accent { color: var(--accent-teal); }
+
+.subs-section { margin-bottom: 32px; }
+.subs-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.subs-section-head h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+.subs-section-icon { color: var(--accent-teal); }
+.subs-section-head.muted, .subs-section-head.muted h2 { color: var(--text-secondary); }
+.subs-count {
+  margin-left: auto; font-size: 0.75rem; font-weight: 800; padding: 2px 10px; border-radius: 999px;
+  background: var(--accent-teal-bg); color: var(--accent-teal-dark);
+}
+.subs-section-head.muted .subs-count { background: var(--bg-chip); color: var(--text-secondary); }
+
+.subs-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+.subs-grid.paused { opacity: 0.65; }
+.subs-card {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--border-color);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.subs-card:hover { box-shadow: 0 6px 18px rgba(38, 35, 28, 0.08); transform: translateY(-1px); }
+.subs-card-icon {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; border: 2px solid transparent;
+  display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+}
+.subs-card-main { flex: 1; min-width: 0; }
+.subs-card-name { font-weight: 800; font-size: 0.95rem; }
+.subs-card-price { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+.subs-card-converted { margin-left: 6px; color: var(--accent-teal); font-weight: 700; }
+.subs-card-monthly { margin-left: 6px; color: var(--text-tertiary); }
+.subs-card-total { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 3px; }
+.subs-card-total b { color: var(--text-secondary); }
+.subs-card-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.subs-badge { border-radius: 20px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.subs-badge.late { background: var(--accent-red-bg); color: var(--accent-red); }
+.subs-badge.soon { background: rgba(253, 203, 110, 0.25); color: #B7791F; }
+.subs-badge.ok { background: var(--accent-teal-bg); color: var(--accent-teal-dark); }
+.subs-inactive { font-size: 0.75rem; color: var(--text-tertiary); font-style: italic; }
+
+.subs-btn {
+  flex-shrink: 0; border: none; cursor: pointer; width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.subs-btn.pay { background: color-mix(in srgb, var(--sub-color) 14%, transparent); color: var(--sub-color); }
+.subs-btn.pay:hover { background: var(--sub-color); color: #fff; }
+.subs-btn.undo { background: var(--bg-chip); color: var(--text-secondary); }
+.subs-btn.undo:hover { color: var(--accent-red); }
+
+.subs-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 20px;
+  background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); color: var(--text-secondary);
+}
+.subs-empty p { margin: 0 0 4px; }
+.subs-empty-icon { font-size: 2rem; }
+
+/* Editor */
+.subs-modal .task-modal-input { margin-bottom: 14px; }
+.subs-form-row { display: flex; gap: 10px; }
+.subs-grow { flex: 1; min-width: 0; }
+.subs-icon-select { width: 72px; font-size: 1.3rem; text-align: center; padding: 8px 4px; cursor: pointer; }
+.subs-currency-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.subs-currency-chip {
+  padding: 5px 12px; border-radius: 20px; font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--border-color); background: transparent; color: var(--text-secondary);
+}
+.subs-currency-chip span { font-weight: 400; font-size: 0.75rem; }
+.subs-currency-chip.active { border-color: var(--accent-teal); background: var(--accent-teal-bg); color: var(--accent-teal-dark); }
+.subs-custom-currency { max-width: 140px; margin-top: -6px; }
+.subs-modal .habit-color-row { margin-bottom: 16px; }
+.subs-check { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 10px; cursor: pointer; }
+.subs-check input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent-teal); cursor: pointer; }
+.subs-days-input { width: 56px; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 8px; font: inherit; background: var(--bg-card); color: var(--text-primary); }
+.subs-danger { color: var(--accent-red); }
+.subs-confirm { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); }
+
+@media (max-width: 520px) {
+  .subs-title { font-size: 1.6rem; }
+  .subs-card { gap: 10px; padding: 12px; }
+  .subs-card-side { flex-direction: column; align-items: flex-end; }
+}
