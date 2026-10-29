@@ -48,8 +48,8 @@
   position: relative; height: 112px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-/* The whole picture fits inside the cover (logos stay uncropped), letterboxed on the subscription tint. */
-.subs-card-cover img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 10px; }
+/* The picture is stretched or squeezed to fill the cover exactly — nothing cropped, no margins. */
+.subs-card-cover img { width: 100%; height: 100%; object-fit: fill; display: block; }
 .subs-card-cover-icon { font-size: 2.6rem; line-height: 1; }
 .subs-card-cover-badge { position: absolute; top: 8px; right: 8px; }
 .subs-card-cover-badge .subs-badge { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
@@ -97,7 +97,7 @@
   position: relative; height: 120px; border-radius: 14px; overflow: hidden; cursor: pointer;
   display: flex; align-items: center; justify-content: center; border: 1.5px dashed var(--border-color);
 }
-.subs-cover-drop img { width: 100%; height: 100%; object-fit: contain; padding: 10px 10px 34px; }
+.subs-cover-drop img { width: 100%; height: 100%; object-fit: fill; }
 .subs-cover-drop.busy { opacity: 0.6; }
 .subs-cover-hint {
   position: absolute; left: 8px; bottom: 8px; right: 8px; text-align: center; font-size: 0.75rem; font-weight: 700;
