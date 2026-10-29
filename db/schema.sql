@@ -71,6 +71,7 @@ create table forge.habits (
   target_days text[],
   times_per_day integer not null default 1,
   archived boolean not null default false,
+  end_date text, -- 'YYYY-MM-DD'; after it the habit is finished (null = no end)
   created_at timestamptz not null default now()
 );
 

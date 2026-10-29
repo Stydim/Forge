@@ -1,8 +1,9 @@
 import { CheckCircle2, Pencil, Plus } from 'lucide-react';
 import { DAY_LABELS } from '../lib/recurrence';
 import { localDateKey } from '../lib/streaks';
-import { calcHabitStreak, isHabitDueOn, habitProgress, habitPieFill, habitBarFill } from '../lib/habitStreak';
+import { calcHabitStreak, isHabitDueOn, habitProgress, habitPieFill, habitBarFill, isHabitEnded } from '../lib/habitStreak';
 import { pluralRu } from '../lib/format';
+import { HabitIcon } from '../lib/habitIcons';
 
 const HISTORY_DAYS = 14;
 
@@ -11,7 +12,9 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
   const todayCount = habit.completions[todayKey] || 0;
   const todayProgress = habitProgress(todayCount, habit.times_per_day);
   const isCompleted = todayProgress >= 1;
-  const dueToday = isHabitDueOn(habit.target_days, new Date());
+  const ended = isHabitEnded(habit);
+  // A finished habit (past its end date) takes no new check-ins.
+  const dueToday = !ended && isHabitDueOn(habit.target_days, new Date());
   const streak = calcHabitStreak(habit);
 
   const daysLabel = habit.target_days && habit.target_days.length
@@ -19,6 +22,9 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
     : 'каждый день';
   const timesLabel = habit.times_per_day > 1 ? ` · ${todayCount}/${habit.times_per_day} раз` : '';
   const streakLabel = streak > 0 ? ` · 🔥 ${streak} ${pluralRu(streak, 'день', 'дня', 'дней')}` : '';
+  const endLabel = habit.end_date
+    ? ` · ${ended ? 'завершена' : 'до'} ${habit.end_date.split('-').reverse().join('.')}`
+    : '';
 
   const history = [];
   for (let i = HISTORY_DAYS - 1; i >= 0; i--) {
@@ -36,12 +42,10 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
     <div className="task-card habit-card" onClick={() => onOpenStats(habit)}>
       <div className="task-card-row">
         <div className="habit-card-heading">
-          <div className="habit-icon-badge" style={{ background: `${habit.color}22`, color: habit.color }}>
-            {habit.icon || '⭐'}
-          </div>
+          <HabitIcon habit={habit} />
           <div>
             <div className="task-card-title">{habit.title}</div>
-            <div className="task-card-meta">{daysLabel}{timesLabel}{streakLabel}</div>
+            <div className="task-card-meta">{daysLabel}{timesLabel}{streakLabel}{endLabel}</div>
           </div>
         </div>
         <div className="task-card-actions">
@@ -54,7 +58,7 @@ export default function HabitCard({ habit, onToggle, onEdit, onOpenStats }) {
             disabled={!dueToday}
             onClick={(e) => { e.stopPropagation(); onToggle(habit.id, todayKey); }}
             aria-label={!dueToday ? 'Сегодня не запланировано' : (isCompleted ? 'Выполнено' : 'Отметить выполнение')}
-            title={!dueToday ? 'Сегодня не запланировано для этой привычки' : undefined}
+            title={ended ? 'Привычка завершена' : (!dueToday ? 'Сегодня не запланировано для этой привычки' : undefined)}
           >
             {isCompleted ? <CheckCircle2 size={22} /> : <Plus size={20} strokeWidth={2.5} />}
           </button>

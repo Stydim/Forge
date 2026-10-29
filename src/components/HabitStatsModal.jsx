@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { localDateKey } from '../lib/streaks';
 import { isHabitDueOn, habitProgress, habitPieFill } from '../lib/habitStreak';
+import { HabitIcon } from '../lib/habitIcons';
 
 const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTH_LABEL_OPTS = { month: 'long', year: 'numeric' };
@@ -57,9 +58,7 @@ export default function HabitStatsModal({ habit, onToggle, onClose }) {
         <button className="task-modal-close" onClick={onClose} aria-label="Закрыть">×</button>
 
         <div className="habit-stats-heading">
-          <div className="habit-icon-badge" style={{ background: `${habit.color}22`, color: habit.color }}>
-            {habit.icon || '⭐'}
-          </div>
+          <HabitIcon habit={habit} />
           <h2 className="task-modal-title">{habit.title}</h2>
         </div>
 

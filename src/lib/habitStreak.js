@@ -47,3 +47,12 @@ export function calcHabitStreak(habit) {
   }
   return streak;
 }
+
+export function todayKey() {
+  return localDateKey(new Date().toISOString());
+}
+
+// Past its end date (Sanct's "Дата завершения") — the habit is finished.
+export function isHabitEnded(habit) {
+  return !!habit.end_date && habit.end_date < todayKey();
+}

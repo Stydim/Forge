@@ -173,7 +173,7 @@ export default function App() {
               />
             }
           />
-          <Route path="/archive" element={<ArchivePage onRestore={tasks.load} />} />
+          <Route path="/archive" element={<ArchivePage onRestore={tasks.load} habits={habits} />} />
           <Route
             path="/reader"
             element={(

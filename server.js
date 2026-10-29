@@ -338,7 +338,8 @@ const TASK_COLUMNS = [
 const JSONB_COLUMNS = new Set(['checklist']);
 const dbValue = (col, v) => (JSONB_COLUMNS.has(col) && v != null ? JSON.stringify(v) : v);
 const SUBTASK_COLUMNS = ['task_id', 'label', 'done', 'position'];
-const HABIT_COLUMNS = ['title', 'icon', 'color', 'target_days', 'times_per_day', 'archived'];
+// end_date: 'YYYY-MM-DD' after which the habit counts as finished (Sanct).
+const HABIT_COLUMNS = ['title', 'icon', 'color', 'target_days', 'times_per_day', 'archived', 'end_date'];
 
 function buildInsert(table, allowedCols, body) {
   const cols = Object.keys(body).filter((k) => allowedCols.includes(k));
@@ -587,6 +588,8 @@ app.get('/api/snooze-events', async (req, res) => {
 });
 
 // --- Habits ---
+// All habits, archived ones included — the client splits them (the archive
+// page lists archived habits for restore).
 app.get('/api/habits', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -594,7 +597,6 @@ app.get('/api/habits', async (_req, res) => {
         (select coalesce(json_agg(hc), '[]'::json)
            from forge.habit_completions hc where hc.habit_id = h.id) as habit_completions
       from forge.habits h
-      where h.archived = false
       order by h.created_at asc
     `);
     res.json(rows);
@@ -616,6 +618,13 @@ app.patch('/api/habits/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Habit not found' });
     res.json(rows[0]);
   } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+app.delete('/api/habits/:id', async (req, res) => {
+  try {
+    await pool.query('delete from forge.habits where id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/habits/:habitId/completions/:date', async (req, res) => {
@@ -1399,6 +1408,8 @@ async function migrate() {
     )
   `);
   await pool.query('alter table forge.books add column if not exists shelf_slot integer');
+  // Habit end date, ported from Sanct.
+  await pool.query('alter table forge.habits add column if not exists end_date text');
   await pool.query('alter table forge.books add column if not exists plain_only boolean not null default false');
   await pool.query(`
     create table if not exists forge.tts_cache (

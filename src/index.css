@@ -1775,6 +1775,10 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   max-width: 760px;
 }
 
+.archive-tabs { display: inline-flex; gap: 2px; background: var(--bg-chip); border-radius: var(--radius-full); padding: 3px; margin: 4px 0 20px; }
+.archive-tabs button { padding: 7px 16px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.875rem; color: var(--text-secondary); }
+.archive-tabs button.active { background: var(--accent-teal); color: var(--text-inverse); }
+
 .archive-empty {
   color: var(--text-secondary);
   background: var(--bg-card);

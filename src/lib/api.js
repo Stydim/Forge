@@ -92,6 +92,7 @@ export const listSnoozeEventsSince = (sinceIso) => request(`/snooze-events?since
 export const listHabits = () => request('/habits');
 export const createHabit = (fields) => request('/habits', { method: 'POST', body: json(fields) });
 export const updateHabit = (id, fields) => request(`/habits/${id}`, { method: 'PATCH', body: json(fields) });
+export const deleteHabit = (id) => request(`/habits/${id}`, { method: 'DELETE' });
 export const upsertHabitCompletion = (habitId, dateKey, count) => (
   request(`/habits/${habitId}/completions/${dateKey}`, { method: 'PUT', body: json({ count }) })
 );

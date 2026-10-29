@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { RotateCcw, Trash2 } from 'lucide-react';
 import { useArchive } from '../hooks/useArchive';
 import { pluralRu } from '../lib/format';
+import { HabitIcon } from '../lib/habitIcons';
 
 function formatCompletedAt(iso) {
   const date = new Date(iso);
@@ -13,8 +14,10 @@ function formatCompletedAt(iso) {
   return `Выполнено: ${day}, ${time}`;
 }
 
-export default function ArchivePage({ onRestore }) {
+export default function ArchivePage({ onRestore, habits: habitsState }) {
   const { tasks, loading, error, restoreTask, deleteForever, deleteMany } = useArchive(onRestore);
+  const { archivedHabits, restoreHabit, deleteHabit } = habitsState;
+  const [tab, setTab] = useState('tasks');
   const [selected, setSelected] = useState(() => new Set());
 
   const allSelected = tasks.length > 0 && selected.size === tasks.length;
@@ -52,10 +55,53 @@ export default function ArchivePage({ onRestore }) {
     return `Выбрано: ${n} ${pluralRu(n, 'задача', 'задачи', 'задач')}`;
   }, [selected]);
 
+  const handleDeleteHabit = (habit) => {
+    if (window.confirm(`Удалить привычку «${habit.title}» навсегда вместе с историей? Это нельзя отменить.`)) {
+      deleteHabit(habit.id);
+    }
+  };
+
   return (
     <div className="archive-page">
       <div className="page-date">АРХИВ</div>
-      <h1 className="page-heading">Выполненные задачи</h1>
+      <h1 className="page-heading">{tab === 'tasks' ? 'Выполненные задачи' : 'Привычки в архиве'}</h1>
+
+      <div className="archive-tabs">
+        <button className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>Задачи ({tasks.length})</button>
+        <button className={tab === 'habits' ? 'active' : ''} onClick={() => setTab('habits')}>Привычки ({archivedHabits.length})</button>
+      </div>
+
+      {tab === 'habits' && (
+        <>
+          {archivedHabits.length === 0 && (
+            <div className="archive-empty">В архиве нет привычек — их можно отправить сюда из окна редактирования.</div>
+          )}
+          <div className="archive-list">
+            {archivedHabits.map((habit) => (
+              <div key={habit.id} className="archive-item">
+                <HabitIcon habit={habit} size={36} />
+                <div className="archive-item-info">
+                  <div className="archive-item-title" style={{ textDecoration: 'none' }}>{habit.title}</div>
+                  <div className="archive-item-meta">
+                    Отметок: {Object.values(habit.completions).filter((c) => c > 0).length}
+                    {habit.end_date ? ` · до ${habit.end_date.split('-').reverse().join('.')}` : ''}
+                  </div>
+                </div>
+                <div className="archive-item-actions">
+                  <button className="task-card-icon-btn" onClick={() => restoreHabit(habit.id)} aria-label="Восстановить" title="Восстановить">
+                    <RotateCcw size={16} />
+                  </button>
+                  <button className="task-card-icon-btn" onClick={() => handleDeleteHabit(habit)} aria-label="Удалить навсегда" title="Удалить навсегда">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === 'tasks' && (<>
 
       {error && (
         <div className="task-card urgent" style={{ marginBottom: 16 }}>
@@ -125,6 +171,7 @@ export default function ArchivePage({ onRestore }) {
           </div>
         ))}
       </div>
+      </>)}
     </div>
   );
 }
