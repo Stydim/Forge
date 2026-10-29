@@ -5,16 +5,16 @@ import { getCharacter } from '../lib/characters';
 export default function Sidebar({ onNewTask, taskCount, goalCount, activeCharacterId, mobileOpen, onCloseMobile }) {
   const character = getCharacter(activeCharacterId);
   const navItems = [
+    { to: '/reader', label: 'Библиотека' },
     { to: '/tasks', label: 'Задачи', count: taskCount },
     { to: '/goals', label: 'Цели', count: goalCount },
-    { to: '/habits', label: 'Привычки' },
-    { to: '/weight', label: 'Трекер веса' },
-    { to: '/subscriptions', label: 'Подписки' },
     { to: '/notes', label: 'Заметки' },
-    { to: '/reader', label: 'Библиотека' },
+    { to: '/habits', label: 'Привычки' },
+    { to: '/subscriptions', label: 'Подписки' },
+    { to: '/weight', label: 'Трекер веса' },
+    { to: '/archive', label: 'Архив' },
     { to: '/progress', label: 'Прогресс' },
     { to: '/characters', label: 'Персонажи' },
-    { to: '/archive', label: 'Архив' },
     { to: '/settings', label: 'Настройки' },
   ];
 
