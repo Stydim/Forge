@@ -33,7 +33,7 @@ function SubCard({ sub, onOpen, onPay, onUndo, convert, displaySymbol }) {
 
   return (
     <div className="subs-card" onClick={() => onOpen(sub)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen(sub)}>
-      <div className="subs-card-cover" style={{ background: sub.image_url ? undefined : `${sub.color}22` }}>
+      <div className="subs-card-cover" style={{ background: `${sub.color}22` }}>
         {sub.image_url
           ? <img src={sub.image_url} alt="" draggable={false} />
           : <span className="subs-card-cover-icon">{sub.icon}</span>}
@@ -113,7 +113,7 @@ function CoverPicker({ value, color, icon, onChange, pasteRef, busy, setBusy }) 
     <div className="subs-cover-picker">
       <div
         className={`subs-cover-drop${busy ? ' busy' : ''}`}
-        style={{ background: value ? undefined : `${color}22` }}
+        style={{ background: `${color}22` }}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files[0]); }}
