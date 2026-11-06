@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from '../lib/api';
-import { getNextOccurrence, buildRecurrenceNote } from '../lib/recurrence';
+import { getNextOccurrence, buildRecurrenceNote, firstOccurrence } from '../lib/recurrence';
 import { resolveDueAtWithoutTime, dateKey } from '../lib/dueDate';
 import { openChecklistCount } from '../lib/taskDetails';
 
@@ -65,6 +65,17 @@ function detailColumns({ description, priority, categoryId, tags, checklist, tim
   if (checklist !== undefined) cols.checklist = (checklist || []).filter((c) => c.title?.trim());
   if (timeTargetMinutes !== undefined) cols.time_target_minutes = timeTargetMinutes || null;
   return cols;
+}
+
+// A repeating task saved without a date starts on its first matching day,
+// date only — due by the end of that day, so it isn't overdue the moment
+// it's created.
+function withFirstDue(due_at, dueHasTime, repeatType, repeatDays) {
+  if (due_at || !repeatType || repeatType === 'none') return { due_at, dueHasTime };
+  const first = firstOccurrence(repeatType, repeatDays);
+  if (!first) return { due_at, dueHasTime };
+  first.setHours(23, 59, 0, 0);
+  return { due_at: first.toISOString(), dueHasTime: false };
 }
 
 export function useTasks() {
@@ -236,6 +247,7 @@ export function useTasks() {
   }) => {
     const trimmed = title.trim();
     if (!trimmed) return;
+    ({ due_at, dueHasTime } = withFirstDue(due_at, dueHasTime, repeatType, repeatDays));
     let data;
     try {
       data = await api.createTask({
@@ -277,6 +289,7 @@ export function useTasks() {
     if (!task) return;
     const trimmed = title.trim();
     if (!trimmed) return;
+    ({ due_at, dueHasTime } = withFirstDue(due_at, dueHasTime, repeatType, repeatDays));
 
     const dbFields = {
       ...detailColumns(details),

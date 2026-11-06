@@ -52,6 +52,31 @@ function nextCustomDay(date, days) {
   return null;
 }
 
+// Whether a repeat rule lands on this date (weekly/monthly/yearly start
+// from any day, so they always do).
+function matchesDay(date, repeatType, repeatDays) {
+  const day = date.getDay();
+  switch (repeatType) {
+    case 'weekdays': return day !== 0 && day !== 6;
+    case 'weekends': return day === 0 || day === 6;
+    case 'custom_days': return !!repeatDays?.some((d) => DAY_INDEX[d] === day);
+    default: return true;
+  }
+}
+
+/**
+ * The first date a repeating task falls on when it was saved without a date:
+ * today if the rule includes today, otherwise its next day. Without this a
+ * "по Вт, Пт" task had no due date at all and never showed up in "Сегодня".
+ */
+export function firstOccurrence(repeatType, repeatDays) {
+  if (!repeatType || repeatType === 'none') return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (matchesDay(today, repeatType, repeatDays)) return today;
+  return getNextOccurrence(today.toISOString(), repeatType, repeatDays);
+}
+
 /** Given the current due date and a repeat rule, returns the next Date (or null if the task doesn't repeat). */
 export function getNextOccurrence(currentDueAt, repeatType, repeatDays) {
   const base = currentDueAt ? new Date(currentDueAt) : new Date();

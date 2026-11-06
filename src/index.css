@@ -2260,3 +2260,21 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
   .details-actions .task-modal-actions-left { flex: 1 1 100%; }
   .details-actions .task-modal-actions-left .task-modal-btn-small { flex: 1; justify-content: center; }
 }
+
+/* Tasks more than a month away: shrink in on appearing, full size on hover
+   (or once the date is within a month and the wrapper goes away). */
+.task-far {
+  transform: scale(0.8);
+  transform-origin: center top;
+  margin-bottom: -22px;
+  opacity: 0.8;
+  transition: transform 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
+  animation: task-far-shrink 0.5s ease;
+}
+.task-far:hover, .task-far:focus-within { transform: scale(1); opacity: 1; margin-bottom: 0; }
+@keyframes task-far-shrink {
+  from { transform: scale(1); opacity: 1; margin-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-far { animation: none; transition: none; }
+}

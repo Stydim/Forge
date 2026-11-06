@@ -84,7 +84,14 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   tomorrowStart.setHours(24, 0, 0, 0);
   const isToday = (t) => !!t.due_at && new Date(t.due_at) < tomorrowStart;
   const todayCount = displayTasks.filter(isToday).length;
-  const listTasks = displayTasks.filter((t) => (activeFilter === 'all' || t.category_id === activeFilter) && (!todayOnly || isToday(t)));
+  // By date: soonest (and overdue) first, tasks without a date at the end.
+  const dueTime = (t) => (t.due_at ? new Date(t.due_at).getTime() : Infinity);
+  const listTasks = displayTasks
+    .filter((t) => (activeFilter === 'all' || t.category_id === activeFilter) && (!todayOnly || isToday(t)))
+    .sort((a, b) => dueTime(a) - dueTime(b));
+  // More than a month away: shown shrunk until hovered or the date comes closer.
+  const farFrom = Date.now() + 30 * DAY_MS;
+  const isFar = (t) => dueTime(t) !== Infinity && dueTime(t) > farFrom;
   const overdueCount = displayTasks.filter((t) => t.display === 'urgent').length;
 
   const heading = displayTasks.length === 0
@@ -259,6 +266,58 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
     }
   };
 
+  const renderCard = (task) => {
+    const selected = task.id === activeTask?.id;
+    if (task.display === 'urgent') {
+      return (
+        <UrgentTaskCard
+          key={task.id}
+          task={task}
+          onDone={handleDone}
+          onSnooze={handleSnooze}
+          onSubtaskClick={toggleSubtask}
+          onEdit={onEditTask}
+          onSelect={handleSelect}
+          selected={selected}
+          meta={taskMeta}
+          timer={timer}
+          onOpenTimer={onOpenTimer}
+          onOpen={setDetailsId}
+        />
+      );
+    }
+    if (task.display === 'progress') {
+      return (
+        <ProgressTaskCard
+          key={task.id}
+          task={task}
+          onSubtaskClick={toggleSubtask}
+          onSelect={handleSelect}
+          selected={selected}
+          meta={taskMeta}
+          timer={timer}
+          onOpenTimer={onOpenTimer}
+        />
+      );
+    }
+    return (
+      <NormalTaskCard
+        key={task.id}
+        task={task}
+        onDone={handleDone}
+        onSnooze={handleSnooze}
+        onSubtaskClick={toggleSubtask}
+        onEdit={onEditTask}
+        onSelect={handleSelect}
+        selected={selected}
+        meta={taskMeta}
+        timer={timer}
+        onOpenTimer={onOpenTimer}
+        onOpen={setDetailsId}
+      />
+    );
+  };
+
   return (
     <div className="tasks-page">
       <div className="tasks-main">
@@ -320,55 +379,8 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
 
         <div className="task-list">
           {listTasks.map((task) => {
-            const selected = task.id === activeTask?.id;
-            if (task.display === 'urgent') {
-              return (
-                <UrgentTaskCard
-                  key={task.id}
-                  task={task}
-                  onDone={handleDone}
-                  onSnooze={handleSnooze}
-                  onSubtaskClick={toggleSubtask}
-                  onEdit={onEditTask}
-                  onSelect={handleSelect}
-                  selected={selected}
-                  meta={taskMeta}
-                  timer={timer}
-                  onOpenTimer={onOpenTimer}
-                  onOpen={setDetailsId}
-                />
-              );
-            }
-            if (task.display === 'progress') {
-              return (
-                <ProgressTaskCard
-                  key={task.id}
-                  task={task}
-                  onSubtaskClick={toggleSubtask}
-                  onSelect={handleSelect}
-                  selected={selected}
-                  meta={taskMeta}
-                  timer={timer}
-                  onOpenTimer={onOpenTimer}
-                />
-              );
-            }
-            return (
-              <NormalTaskCard
-                key={task.id}
-                task={task}
-                onDone={handleDone}
-                onSnooze={handleSnooze}
-                onSubtaskClick={toggleSubtask}
-                onEdit={onEditTask}
-                onSelect={handleSelect}
-                selected={selected}
-                meta={taskMeta}
-                timer={timer}
-                onOpenTimer={onOpenTimer}
-                onOpen={setDetailsId}
-              />
-            );
+            const card = renderCard(task);
+            return isFar(task) ? <div key={task.id} className="task-far">{card}</div> : card;
           })}
         </div>
 
