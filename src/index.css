@@ -2263,29 +2263,32 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 
 /* Tasks more than a month away: shrink in on appearing, full size on hover
    (or once the date is within a month and the wrapper goes away). */
+/* One animated number drives width, scale and spacing together, so the
+   card's visible width stays exactly the list's while only its height
+   changes. */
+@property --far-scale {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
 .task-far {
   --far-scale: 0.4;
   /* Give back the height the scaled-down card no longer fills. */
   margin-bottom: calc(var(--far-h, 0px) * (var(--far-scale) - 1));
   opacity: 0.8;
-  transition: opacity 0.25s ease, margin 0.25s ease;
-  animation: task-far-fade 0.5s ease;
+  transition: --far-scale 0.25s ease, opacity 0.25s ease;
+  animation: task-far-shrink 0.5s ease;
 }
 /* Laid out 1/scale wide, then scaled: full list width, small card. */
 .task-far-inner {
   width: calc(100% / var(--far-scale));
   transform: scale(var(--far-scale));
   transform-origin: left top;
-  transition: transform 0.25s ease, width 0.25s ease;
-  animation: task-far-shrink 0.5s ease;
 }
 .task-far:hover, .task-far:focus-within { --far-scale: 1; opacity: 1; }
 @keyframes task-far-shrink {
-  from { transform: scale(1); width: 100%; }
-}
-@keyframes task-far-fade {
-  from { opacity: 1; margin-bottom: 0; }
+  from { --far-scale: 1; opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .task-far, .task-far-inner { animation: none; transition: none; }
+  .task-far { animation: none; transition: none; }
 }
