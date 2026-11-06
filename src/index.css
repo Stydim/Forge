@@ -2264,14 +2264,16 @@ h1, h2, h3, h4 { font-weight: 800; line-height: 1.25; color: var(--text-primary)
 /* Tasks more than a month away: shrink in on appearing, full size on hover
    (or once the date is within a month and the wrapper goes away). */
 .task-far {
-  transform: scale(0.8);
+  --far-scale: 0.4;
+  transform: scale(var(--far-scale));
   transform-origin: center top;
-  margin-bottom: -22px;
+  /* Give back the height the scaled-down card no longer fills. */
+  margin-bottom: calc(var(--far-h, 0px) * (var(--far-scale) - 1));
   opacity: 0.8;
   transition: transform 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
   animation: task-far-shrink 0.5s ease;
 }
-.task-far:hover, .task-far:focus-within { transform: scale(1); opacity: 1; margin-bottom: 0; }
+.task-far:hover, .task-far:focus-within { --far-scale: 1; opacity: 1; }
 @keyframes task-far-shrink {
   from { transform: scale(1); opacity: 1; margin-bottom: 0; }
 }

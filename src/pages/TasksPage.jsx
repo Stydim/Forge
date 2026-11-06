@@ -18,6 +18,20 @@ const dateLabel = new Date().toLocaleDateString('ru-RU', {
   month: 'long',
 }).toUpperCase();
 
+// Wrapper for a task more than a month away: shown at 40% (see .task-far),
+// with its card's height measured so the space it leaves shrinks too.
+function FarTask({ children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => el.style.setProperty('--far-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return <div ref={ref} className="task-far">{children}</div>;
+}
+
 function annotateSubtasks(subtasks) {
   const firstPendingIndex = subtasks.findIndex((s) => !s.done);
   return subtasks.map((s, i) => ({ ...s, active: i === firstPendingIndex }));
@@ -380,7 +394,7 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
         <div className="task-list">
           {listTasks.map((task) => {
             const card = renderCard(task);
-            return isFar(task) ? <div key={task.id} className="task-far">{card}</div> : card;
+            return isFar(task) ? <FarTask key={task.id}>{card}</FarTask> : card;
           })}
         </div>
 
