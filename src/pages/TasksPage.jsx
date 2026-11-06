@@ -99,14 +99,14 @@ export default function TasksPage({ tasks: tasksState, onEditTask, selectedTaskI
   tomorrowStart.setHours(24, 0, 0, 0);
   const isToday = (t) => !!t.due_at && new Date(t.due_at) < tomorrowStart;
   const todayCount = displayTasks.filter(isToday).length;
-  // By date: soonest (and overdue) first, tasks without a date at the end.
-  const dueTime = (t) => (t.due_at ? new Date(t.due_at).getTime() : Infinity);
+  // Tasks without a date first, then by date: soonest (and overdue) first.
+  const dueTime = (t) => (t.due_at ? new Date(t.due_at).getTime() : -Infinity);
   const listTasks = displayTasks
     .filter((t) => (activeFilter === 'all' || t.category_id === activeFilter) && (!todayOnly || isToday(t)))
-    .sort((a, b) => dueTime(a) - dueTime(b));
+    .sort((a, b) => (dueTime(a) === dueTime(b) ? 0 : dueTime(a) - dueTime(b)));
   // More than a month away: shown shrunk until hovered or the date comes closer.
   const farFrom = Date.now() + 30 * DAY_MS;
-  const isFar = (t) => dueTime(t) !== Infinity && dueTime(t) > farFrom;
+  const isFar = (t) => !!t.due_at && dueTime(t) > farFrom;
   const overdueCount = displayTasks.filter((t) => t.display === 'urgent').length;
 
   const heading = displayTasks.length === 0
