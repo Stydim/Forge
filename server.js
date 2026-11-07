@@ -1358,6 +1358,9 @@ app.get('/api/note-images/:id', async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
+// Cheap liveness check — also what the keep-awake ping below hits.
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
 // sw.js is re-checked on every visit, so a new build's offline copy
 // replaces the old one.
 app.use(express.static(DIST, {
@@ -1543,4 +1546,20 @@ async function migrate() {
 
 migrate()
   .catch((err) => console.error('migrate failed:', err.message))
-  .finally(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)));
+  .finally(() => app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    keepAwake();
+  }));
+
+// Render's free plan puts the service to sleep after 15 minutes without
+// inbound requests. On Render (RENDER_EXTERNAL_URL is set there) ping our own
+// public URL every 14 minutes — it goes through Render's proxy, so it counts
+// as traffic and the service stays up. Locally this does nothing.
+const KEEP_AWAKE_MS = 14 * 60 * 1000;
+function keepAwake() {
+  const base = process.env.RENDER_EXTERNAL_URL;
+  if (!base) return;
+  setInterval(() => {
+    fetch(`${base}/api/health`).catch((err) => console.error('keep-awake ping failed:', err.message));
+  }, KEEP_AWAKE_MS);
+}
